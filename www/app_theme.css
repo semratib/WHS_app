@@ -1,0 +1,140 @@
+h1, h2 {
+    color: #00205C;
+}
+
+h3 { 
+    color: #009ADE; 
+}
+
+h4 {
+    color: #A6228C;font-weight:600;
+}
+
+h5 {
+    color: #80BC00;font-weight:600;
+}
+
+<!-- .virtual-select{font-size:150%; color: #00205C; !important}-->
+.vscomp-wrapper {
+    color: #00205C;
+    display: inline-flex;
+    flex-wrap: wrap;
+    font-family: sans-serif;
+    font-size: 16px;
+    position: relative;
+    text-align: left;
+    width: 100%;
+}
+.vscomp-toggle-button {
+    align-items: center;
+    background-color: #fff;
+    border: 1px solid #B7B7B7  !important;
+    border-radius: 20px;
+    cursor: pointer;
+    display: flex;
+    padding: 7px 30px 7px 10px;
+    position: relative;
+    width: 100%;
+}
+<!-- .virtual-select vscomp-ele pop-comp-ele shiny-bound-input{font-size:20px; color: #00205C;}-->
+
+<!-- body { -->
+<!-- text-align: justify -->
+<!-- font-size: 10px; -->
+<!-- } -->
+
+--bs-body-font-size {
+font-size: 0.9rem;
+}
+.highcharts-container {
+    width: 100% !important;
+    height: 100% !important;
+}
+<!--border: 1px solid #B7B7B7 !important;-->
+<!--border-radius: 8px;-->
+
+<!-- .shiny-frame{ -->
+<!--   width: 1400px; -->
+<!--   height: 1200px; -->
+<!-- } -->
+
+.container-fluid.main-container{
+max-width: 65%
+}
+
+<!-- .nav-tabs>li>a:hover, .nav-tabs>li>a:focus, .nav-tabs>li.active>a,     .nav-tabs>li.active>a:hover, .nav-tabs>li.active>a:focus{ -->
+<!--      color: #00205C; -->
+<!--      background-color: rgb(255, 255, 255); -->
+<!--      font-size: 18px; -->
+<!--      border-bottom: rgb(255, 255, 255); -->
+<!--      } -->
+.nav-tabs > li > a {
+  color: #00205C;
+  font-size: 18px;
+}
+.nav-tabs{
+border-bottom: 1px solid rgb(0, 32, 92);
+color: #00205C;
+}
+
+.nav-tabs>li.active>a, .nav-tabs>li.active>a:focus, .nav-tabs>li.active>a:hover {
+    color: #00205C;
+    cursor: default;
+    background-color: #fff;
+    border: 1px solid #00205C;
+    border-bottom-color: transparent;
+    <!-- font-size: 18px; -->
+}
+
+.nav-pills > li.active > a, .nav-pills > li.active > a:focus, .nav-pills > li.active > a:hover {
+    color: rgb(255, 255, 255);
+    background-color: #009ADE;
+}
+
+.nav-pills > li > a {
+    border-radius: 4px;
+    color: #009ADE;
+}
+
+
+thead tr > :first-child {
+  position: sticky;
+  z-index: 3;
+  left: 0;
+}
+
+
+tbody tr > :first-child {
+    position: sticky;
+    z-index: 1;
+    left: 0;
+    background: white;
+}
+
+
+thead>tr:first-child {
+  top: 0;
+   z-index: 4;
+   position: sticky;
+}
+thead>tr:nth-child(2) {
+  top: 140px;
+   z-index: 3;
+   position: sticky;
+}
+thead>tr:nth-child(3) {
+  top: 205px;
+   z-index: 3;
+   position: sticky;
+}
+
+
+.vscomp-search-container {
+  align-items: center;
+    /* border-bottom: 1px solid #ddd; */
+    display: flex;
+    height: 40px;
+    padding: 0 5px 0 15px;
+    position: relative;
+    border: 1px solid #ddd;
+}
