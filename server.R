@@ -1867,7 +1867,7 @@ server = function(input, output, session) {
     ft <- width(ft, j =7, width=3.5, unit = "cm")
     ft <- align(ft, j=4:7, align = "center")
     ft <- align(ft, j=4:7, align = "center", part = "header")
-    ft <- footnote(ft, i= 1, j=6, value = as_paragraph("2030 values are colored based on whether the indicator is likely to achieve the target based on 2030 forecasts: green will reach target, yellow are within 10% of target, orange will not reach target."), ref_symbols = "*", part = "header")
+    # ft <- footnote(ft, i= 1, j=6, value = as_paragraph("2030 values are colored based on whether the indicator is likely to achieve the target based on 2030 forecasts: green will reach target, yellow are within 10% of target, orange will not reach target."), ref_symbols = "*", part = "header")
     
     ft %>% htmltools_value()
   })
@@ -1985,13 +1985,53 @@ server = function(input, output, session) {
     
   })
   
-  # UHC Circle graph
+  ## UHC Circle graph
   
   output$uhcgraph <- renderPlot({
     
     make_donut_uhc(filtered_data = filtered_indicator_values, level=input$iso3uhc, year_pie=2018)
     
   })
+  
+  ## Generate report
+  reactive_filename_mmr <- reactive({
+    paste0("country-report-", input$reportiso, ".pdf")
+  })
+  
+  reactive_country_name <- reactive({
+    paste0(input$reportiso)
+  })
+  
+  output$download_button <- downloadHandler(
+    
+    filename = function() {
+      reactive_filename_mmr()
+    },
+    content = function(file) {
+      params <- list(
+        country = reactive_country_name(),
+        country_iso = country_table %>% filter(Title == input$reportiso) %>% pull(Code),
+        cod19 = cod19,
+        cod00 = cod00,
+        ledata = data %>% filter(GHOcode=="WHOSIS_000001" & year==2021),
+        sdg_data = filtered_indicator_values,
+        country_table = country_table
+      )
+      
+      id <- showNotification(
+        "Rendering pdf...", 
+        duration = NULL, 
+        closeButton = FALSE
+      )
+      on.exit(removeNotification(id), add = TRUE)
+      
+      rmarkdown::render("rmd/country-report.Rmd", 
+                        output_file = file,
+                        params = params,
+                        envir = new.env(parent = globalenv())
+      )
+    }
+  )
   
   #################################################################################################################
   

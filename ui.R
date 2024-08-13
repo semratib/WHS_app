@@ -38,7 +38,7 @@ ui<-fluidPage(withMathJax(),
                              tabPanel("Life and Healthy life expectancy",
                                       tags$br(),
                                       tags$br(),
-                                      fluidRow(div(textOutput("lehetext"), style="font-size:20px")),
+                                      fluidRow(div(textOutput("lehetext"), style="font-size:20px;")),
                                       fluidRow(checkboxGroupInput("sex", "",
                                                                   choices = c("Both sexes", "Female", "Male"),
                                                                   selected = c("Both sexes", "Female", "Male"),
@@ -353,8 +353,6 @@ ui<-fluidPage(withMathJax(),
                                       ),
                              tabPanel("SDG Progress",
                                       tags$br(),
-                                      fluidRow(div(textOutput("sdgv2text"), style="font-size:20px")),
-                                      tags$br(),
                                       fluidRow(
                                         virtualSelectInput("sdgind", "Select SDG indicator:",
                                                            choices =  indsdg_,
@@ -363,6 +361,7 @@ ui<-fluidPage(withMathJax(),
                                                            choicesOpt = rep_len("font-size: 16px; color: #00205C;", 40))
                                       ),
                                       tags$br(),
+                                      fluidRow(div(textOutput("sdgv2text"), style="font-size:20px")),
                                       tags$br(),
                                       fluidRow(
                                         column(1),
@@ -399,6 +398,24 @@ ui<-fluidPage(withMathJax(),
                                       tags$br(),
                                       plotOutput("uhcgraph", height = "800px", width = "1200px") %>% withSpinner(type=1),
                                       tags$br()
+                             ),
+                             tabPanel("Generate report",
+                                      tags$br(),
+                                      fluidRow(
+                                        virtualSelectInput("reportiso", "Select country, area or WHO region:",
+                                                           choices =  iso3cod, 
+                                                           selected = "Afganistan",
+                                                           search = TRUE, multiple = FALSE, keepAlwaysOpen = FALSE, width = "35%", height = "100%",
+                                                           choicesOpt = rep_len("font-size: 16px; color: #00205C;", 190))
+                                      ),
+                                      tags$br(),
+                                      downloadButton("download_button", "Download disease burden graphs in one pdf"),
+                                      tags$head(
+                                        tags$style(
+                                          HTML(".shiny-notification {position:fixed;top: calc(50%);left: calc(40%);}"
+                                          )
+                                        )
+                                      )
                              ),
                              type = "pills"
                            ),

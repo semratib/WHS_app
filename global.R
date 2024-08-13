@@ -30,11 +30,13 @@ library(patchwork)
 library(flextable)
 #library(gt)
 
-source("graph_functions.R")
+source("rmd/graph_functions.R")
 
 load(file = "data_2021.rda")
 load(file = "sdgdata_new.rda")
 set.seed(1)
+
+country_table <- ghost::gho_dimension_values("COUNTRY")
 
 # Myhcmap <- rjson::fromJSON(file="poly.json")
 # Myhcmap2 <- rjson::fromJSON(file="line.json")
