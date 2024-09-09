@@ -1,46 +1,4 @@
-# lehegraph <- function(dataset, iso3, sexgph){
-#   
-#   exp <- dataset %>% 
-#     filter(GHOcode=="WHOSIS_000002" | GHOcode=="WHOSIS_000001") %>% 
-#     filter(country==iso3) %>% 
-#     filter(sex %in% sexgph) %>% 
-#     select(country, year, sex, name, value) 
-#   
-#   exp2 <- exp %>% 
-#     pivot_wider(names_from = name, values_from = value)
-#   
-#   max <- exp %>% 
-#     select(value) %>% 
-#     arrange(desc(value)) %>% 
-#     filter(row_number()==1) %>% pull()
-#   
-#   min <- exp %>%
-#     select(value) %>%
-#     arrange(value) %>% 
-#     filter(row_number()==1) %>% pull()
-#   
-#   ggplot()+
-#     geom_ribbon(data = exp2, aes(x=year, ymax=`Life expectancy at birth (years)`, ymin=`Healthy life expectancy at birth (years)`), fill="grey", alpha=0.3) +
-#     geom_line(data = exp, aes(x=year, y=value, color=name), size = 1.2) +
-#     geom_point(data = exp %>% filter(year %in% c(2000, 2010, 2019)), 
-#                aes(x=year, y=value, color=name), size = 3, show.legend=F) +
-#     geom_text(data = exp %>% filter(year %in% c(2000, 2010, 2019) & name=="Life expectancy at birth (years)"), 
-#               aes(x=year, y=value, label = round(value,0)), vjust=-1.5, size=4.5, color = "#009ADE", ) +
-#     geom_text(data = exp %>% filter(year %in% c(2000, 2010, 2019) & name=="Healthy life expectancy at birth (years)"), 
-#               aes(x=year, y=value, label = round(value,0)), vjust=2, size=4.5, color ="#80BC00") +
-#     theme_classic()+
-#     ylab("")+ xlab("")+
-#     scale_y_continuous(limits = c(round(min, 0)-2,round(max, 0)+2)) +
-#     scale_color_manual(values = c("Life expectancy at birth (years)" ="#009ADE",
-#                                   "Healthy life expectancy at birth (years)" = "#80BC00")) +
-#     facet_wrap(~sex) +
-#     theme(axis.text=element_text(size=14),
-#           legend.position = "bottom",
-#           legend.title = element_blank(),
-#           legend.text = element_text(size = 14),
-#           strip.background = element_blank(),
-#           strip.text = element_text(size=14))
-# }
+
 
 gete0 <- function(data){
   dt <- as.data.table(data)
@@ -65,6 +23,442 @@ gete0 <- function(data){
   e0 <- e0[, list(sex, year, value = ex)]
   e0 <- e0 %>% as.data.frame() %>% mutate(name="Life expectancy at birth (years)") 
   return(e0)
+}
+
+
+maketreemapdata_levl1 <- function(regionle, sexcod){
+  
+  if(regionle=="Global"){
+    
+    data_treemap <- cod19 %>%
+      filter(FLAG_LEVEL == 1 & sex==sexcod & DIM_AGEGROUP_CODE==101) %>% 
+      group_by(DIM_YEAR_CODE, DIM_GHECAUSE_TITLE, FLAG_CAUSEGROUP) %>% 
+      summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC),
+                attr_pop = sum(ATTR_POPULATION_NUMERIC)) %>% 
+      ungroup() 
+    
+    data_treemap_2000 <- cod00 %>%
+      filter(FLAG_LEVEL == 1 & sex==sexcod) %>% 
+      group_by(DIM_YEAR_CODE, DIM_GHECAUSE_TITLE, FLAG_CAUSEGROUP) %>% 
+      summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC),
+                attr_pop = sum(ATTR_POPULATION_NUMERIC)) %>%
+      ungroup()
+  
+    
+  }else if(
+    regionle %in% c("African Region", "Eastern Mediterranean Region", "European Region", "Region of the Americas", "South-East Asia Region", "Western Pacific Region") 
+  ){
+    
+    data_treemap_2000 <- cod00 %>%
+      filter(FLAG_LEVEL == 1 & region2==regionle & sex==sexcod) %>% 
+      group_by(DIM_YEAR_CODE, DIM_GHECAUSE_TITLE, FLAG_CAUSEGROUP) %>% 
+      summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC),
+                attr_pop = sum(ATTR_POPULATION_NUMERIC))%>% 
+      ungroup()
+    
+    data_treemap <- cod19 %>%
+      filter(FLAG_LEVEL == 1 & region2==regionle & sex==sexcod & DIM_AGEGROUP_CODE==101) %>% 
+      group_by(DIM_YEAR_CODE, DIM_GHECAUSE_TITLE, FLAG_CAUSEGROUP) %>% 
+      summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC),
+                attr_pop = sum(ATTR_POPULATION_NUMERIC))%>% 
+      ungroup()
+
+    
+  }else{
+    
+    data_treemap <- cod19 %>%
+      filter(country == regionle & FLAG_LEVEL == 1 & sex==sexcod & DIM_AGEGROUP_CODE==101)
+    
+    data_treemap_2000 <- cod00 %>%
+      filter(country == regionle & FLAG_LEVEL == 1 & sex==sexcod)
+    
+  }
+  
+  list_treemap <- list(data_treemap, data_treemap_2000)
+  
+  return(list_treemap)
+}
+
+maketreemapdata_levl2 <- function(regionle, sexcod){
+  
+  if(regionle=="Global"){
+    
+    data_treemap_2000 <- cod00 %>%
+      filter(FLAG_TREEMAP == 1 & sex==sexcod) %>% 
+      group_by(DIM_YEAR_CODE, DIM_GHECAUSE_TITLE, FLAG_CAUSEGROUP) %>% 
+      summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC),
+                attr_pop = sum(ATTR_POPULATION_NUMERIC)) %>%
+      ungroup() %>% 
+      mutate(deaths_100k = (VAL_DEATHS_COUNT_NUMERIC/attr_pop)*100000)
+    
+    data_treemap <- cod19 %>%
+      filter(FLAG_TREEMAP == 1 & sex==sexcod & DIM_AGEGROUP_CODE==101) %>% 
+      group_by(DIM_YEAR_CODE, DIM_GHECAUSE_TITLE, FLAG_CAUSEGROUP) %>% 
+      summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC),
+                attr_pop = sum(ATTR_POPULATION_NUMERIC)) %>% 
+      ungroup() %>% 
+      mutate(deaths_100k = (VAL_DEATHS_COUNT_NUMERIC/attr_pop)*100000)
+    
+  } else if(regionle %in% c("African Region", "Eastern Mediterranean Region", "European Region", "Region of the Americas", "South-East Asia Region", "Western Pacific Region")){
+    
+    data_treemap_2000 <- cod00 %>%
+      filter(FLAG_TREEMAP == 1 & region2==regionle & sex==sexcod) %>% 
+      group_by(DIM_YEAR_CODE, DIM_GHECAUSE_TITLE, FLAG_CAUSEGROUP) %>% 
+      summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC),
+                attr_pop = sum(ATTR_POPULATION_NUMERIC))%>% 
+      ungroup() %>% 
+      mutate(deaths_100k = (VAL_DEATHS_COUNT_NUMERIC/attr_pop)*100000)
+    
+    data_treemap <- cod19 %>%
+      filter(FLAG_TREEMAP == 1 & region2==regionle & sex==sexcod & DIM_AGEGROUP_CODE==101) %>% 
+      group_by(DIM_YEAR_CODE, DIM_GHECAUSE_TITLE, FLAG_CAUSEGROUP) %>% 
+      summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC),
+                attr_pop = sum(ATTR_POPULATION_NUMERIC))%>% 
+      ungroup() %>% 
+      mutate(deaths_100k = (VAL_DEATHS_COUNT_NUMERIC/attr_pop)*100000)
+    
+  }else{
+    
+    data_treemap <- cod19 %>%
+      filter(country == regionle & FLAG_TREEMAP == 1 & sex==sexcod & DIM_AGEGROUP_CODE==101)
+    
+    data_treemap_2000 <- cod00 %>%
+      filter(country == regionle & FLAG_TREEMAP == 1 & sex==sexcod)
+    
+  }
+  
+  list_treemap <- list(data_treemap, data_treemap_2000)
+  
+  return(list_treemap)
+}
+
+maketreemapgraph_levl1 <- function(data_list, regionle, sexcod){
+  
+  data_treemap <- data_list[[1]]
+  data_treemap_2000 <- data_list[[2]]
+
+  if(regionle=="Global"){
+
+    total_deaths <- cod19 %>%
+      filter(FLAG_LEVEL == 0 & sex==sexcod & DIM_AGEGROUP_CODE==101) %>%
+      group_by(DIM_YEAR_CODE) %>% 
+      summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
+      pull(VAL_DEATHS_COUNT_NUMERIC) %>% round()
+    
+    total_deaths_2000 <- cod00 %>%
+      filter(FLAG_LEVEL == 0 & sex==sexcod) %>%
+      group_by(DIM_YEAR_CODE) %>% 
+      summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
+      pull(VAL_DEATHS_COUNT_NUMERIC) %>% round()
+    
+  }else if(regionle %in% c("African Region", "Eastern Mediterranean Region", "European Region", "Region of the Americas", "South-East Asia Region", "Western Pacific Region") ){
+
+    total_deaths <- cod19 %>%
+      filter(FLAG_LEVEL == 0 & region2==regionle & sex==sexcod & DIM_AGEGROUP_CODE==101) %>%
+      group_by(DIM_YEAR_CODE) %>% 
+      summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
+      pull(VAL_DEATHS_COUNT_NUMERIC) %>% round()
+    
+    total_deaths_2000 <- cod00 %>%
+      filter(FLAG_LEVEL == 0 & region2==regionle & sex==sexcod) %>%
+      group_by(DIM_YEAR_CODE) %>% 
+      summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
+      pull(VAL_DEATHS_COUNT_NUMERIC) %>% round()
+    
+  }else{
+
+    total_deaths <- cod19 %>%
+      filter(country == regionle & FLAG_LEVEL == 0 & sex==sexcod & DIM_AGEGROUP_CODE==101) %>%
+      pull(VAL_DEATHS_COUNT_NUMERIC) %>% round()
+    
+    total_deaths_2000 <- cod00 %>%
+      filter(country == regionle & FLAG_LEVEL == 0 & sex==sexcod) %>%
+      pull(VAL_DEATHS_COUNT_NUMERIC) %>% round()
+    
+  }
+  
+  # 2019
+  lev1 <- cod19 %>%
+    filter(FLAG_LEVEL == 1) %>%
+    select(FLAG_CAUSEGROUP, lev1_name = DIM_GHECAUSE_TITLE) %>%
+    unique()
+  
+  data_treemap <- data_treemap %>% left_join(lev1, by = "FLAG_CAUSEGROUP") 
+  
+  data_treemap$lev1_name <- factor(data_treemap$lev1_name, levels = lev1_causes)
+  
+  # add cause fraction to label if over 5%
+  data_treemap <- data_treemap %>%
+    mutate(cause_fraction = VAL_DEATHS_COUNT_NUMERIC / sum(VAL_DEATHS_COUNT_NUMERIC)) %>%
+    mutate(cause_title = paste(DIM_GHECAUSE_TITLE, sprintf("(%1.1f%%)", 100*cause_fraction), sep = " "))
+  
+  # make treemap
+  tm_2019 <- treemap::treemap(data_treemap,
+                              index=c("lev1_name","cause_title"),
+                              vSize="VAL_DEATHS_COUNT_NUMERIC",
+                              type="index",
+                              palette = "Set1",
+                              draw = FALSE)
+  
+  tm_plot_data <- tm_2019$tm %>% 
+    mutate(x1 = x0 + w,
+           y1 = y0 + h) %>% 
+    mutate(x = (x0+x1)/2,
+           y = (y0+y1)/2) %>% 
+    mutate(primary_group = ifelse(is.na(cause_title), 1.2, .5)) %>% 
+    mutate(color = case_when(
+      lev1_name=="Communicable, maternal, perinatal and nutritional conditions" ~"#F26829",
+      lev1_name=="Noncommunicable diseases" ~ "#009ADE",
+      lev1_name=="Injuries" ~ "#80BC00",
+      lev1_name=="Other pandemic related causes" ~ "#A6228C"
+    )) %>% 
+    mutate(color = ifelse(is.na(cause_title), NA, color))
+  
+  tm1 <- ggplot(tm_plot_data, aes(xmin = x0, ymin = y0, xmax = x1, ymax = y1)) + 
+    geom_rect(aes(fill = color, size = primary_group),
+              show.legend = FALSE, color = "white", alpha=0.5) +
+    scale_fill_identity() +
+    scale_size(range = range(tm_plot_data$primary_group)) +
+    ggfittext::geom_fit_text(aes(label = cause_title), min.size = 4, color = "black", grow = TRUE, reflow = TRUE) +
+    scale_x_continuous(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
+    theme_void()+
+    labs(title = paste0("Total deaths in 2021: ", format(total_deaths, big.mark = ",", scientific = F)))+
+    theme(
+      plot.margin = unit(c(0, 0, 0, 1.5), "cm"),
+      plot.title = element_text(hjust = 0.5, size = 18)
+    )
+  
+  
+  # 2000 
+  lev1 <- cod00  %>%
+    filter(FLAG_LEVEL == 1) %>%
+    select(FLAG_CAUSEGROUP, lev1_name = DIM_GHECAUSE_TITLE) %>%
+    unique()
+  data_treemap_2000 <- data_treemap_2000 %>% left_join(lev1, by = "FLAG_CAUSEGROUP") 
+  
+  data_treemap_2000$lev1_name <- factor(data_treemap_2000$lev1_name, levels = lev1_causes)
+  
+  # add cause fraction to label if over 5%
+  data_treemap_2000 <- data_treemap_2000 %>%
+    mutate(cause_fraction = VAL_DEATHS_COUNT_NUMERIC / sum(VAL_DEATHS_COUNT_NUMERIC)) %>%
+    mutate(cause_title = paste(DIM_GHECAUSE_TITLE, sprintf("(%1.1f%%)", 100*cause_fraction), sep = " "))
+  
+  # make treemap
+  tm_2000 <- treemap::treemap(data_treemap_2000,
+                              index=c("lev1_name","cause_title"),
+                              vSize="VAL_DEATHS_COUNT_NUMERIC",
+                              type="index",
+                              palette = "Set1",
+                              draw = FALSE
+  )
+  
+  tm_plot_data_2000 <- tm_2000$tm %>% 
+    mutate(x1 = x0 + w,
+           y1 = y0 + h) %>% 
+    mutate(x = (x0+x1)/2,
+           y = (y0+y1)/2) %>% 
+    mutate(primary_group = ifelse(is.na(cause_title), 1.2, .5)) %>% 
+    mutate(color = case_when(
+      lev1_name=="Communicable, maternal, perinatal and nutritional conditions" ~"#F26829",
+      lev1_name=="Noncommunicable diseases" ~ "#009ADE",
+      lev1_name=="Injuries" ~ "#80BC00",
+      lev1_name=="Other pandemic related causes" ~ "#A6228C"
+    )) %>% 
+    mutate(color = ifelse(is.na(cause_title), NA, color))
+  
+  
+  tm2 <- ggplot(tm_plot_data_2000, aes(xmin = x0, ymin = y0, xmax = x1, ymax = y1)) + 
+    geom_rect(aes(fill = color, size = primary_group),
+              show.legend = FALSE, color = "white", alpha=0.5) +
+    scale_fill_identity() +
+    scale_size(range = range(tm_plot_data$primary_group)) +
+    ggfittext::geom_fit_text(aes(label = cause_title), min.size = 4, color = "black", grow = TRUE, reflow = TRUE) +
+    scale_x_continuous(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
+    theme_void()+
+    labs(title = paste0("Total deaths in 2000: ", format(total_deaths_2000, big.mark = ",", scientific = F)))+
+    theme(
+      plot.margin = unit(c(0, 0, 0, 0), "cm"),
+      plot.title = element_text(hjust = 0.5, size = 18),
+      legend.position = "bottom"
+    )
+  
+  final <- patchwork::wrap_plots(tm2, tm1, ncol = 2) 
+  
+  return(final)
+}
+
+maketreemapgraph_levl2 <- function(data_list, regionle, sexcod){
+  
+  if(regionle=="Global"){
+
+    total_deaths <- cod19 %>%
+      filter(FLAG_LEVEL == 0 & sex==sexcod & DIM_AGEGROUP_CODE==101) %>%
+      group_by(DIM_YEAR_CODE) %>% 
+      summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
+      pull(VAL_DEATHS_COUNT_NUMERIC) %>% round()
+    
+    total_deaths_2000 <- cod00 %>%
+      filter(FLAG_LEVEL == 0 & sex==sexcod) %>%
+      group_by(DIM_YEAR_CODE) %>% 
+      summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
+      pull(VAL_DEATHS_COUNT_NUMERIC) %>% round()
+    
+  } else if(regionle %in% c("African Region", "Eastern Mediterranean Region", "European Region", "Region of the Americas", "South-East Asia Region", "Western Pacific Region") ){
+
+    total_deaths <- cod19 %>%
+      filter(FLAG_LEVEL == 0 & region2==regionle & sex==sexcod & DIM_AGEGROUP_CODE==101) %>%
+      group_by(DIM_YEAR_CODE) %>% 
+      summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
+      pull(VAL_DEATHS_COUNT_NUMERIC) %>% round()
+    
+    total_deaths_2000 <- cod00 %>%
+      filter(FLAG_LEVEL == 0 & region2==regionle & sex==sexcod) %>%
+      group_by(DIM_YEAR_CODE) %>% 
+      summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
+      pull(VAL_DEATHS_COUNT_NUMERIC) %>% round()
+    
+  }else{
+
+    total_deaths <- cod19 %>%
+      filter(country == regionle & FLAG_LEVEL == 0 & sex==sexcod & DIM_AGEGROUP_CODE==101) %>%
+      pull(VAL_DEATHS_COUNT_NUMERIC) %>% round()
+    
+    total_deaths_2000 <- cod00 %>%
+      filter(country == regionle & FLAG_LEVEL == 0 & sex==sexcod) %>%
+      pull(VAL_DEATHS_COUNT_NUMERIC) %>% round()
+    
+  }
+  
+  
+  data_treemap <- data_list[[1]]
+  data_treemap_2000 <- data_list[[2]]
+  
+  # 2019
+  lev1 <- cod19 %>%
+    filter(FLAG_LEVEL == 1) %>%
+    select(FLAG_CAUSEGROUP, lev1_name = DIM_GHECAUSE_TITLE) %>%
+    unique()
+  data_treemap <- data_treemap %>% left_join(lev1, by = "FLAG_CAUSEGROUP") 
+  
+  data_treemap$lev1_name <- factor(data_treemap$lev1_name, levels = lev1_causes)
+  
+  # add cause fraction to label if over 5%
+  data_treemap <- data_treemap %>%
+    mutate(cause_fraction = VAL_DEATHS_COUNT_NUMERIC / sum(VAL_DEATHS_COUNT_NUMERIC)) %>%
+    mutate(cause_title = paste(DIM_GHECAUSE_TITLE, sprintf("(%1.1f%%)", 100*cause_fraction), sep = " "))
+  
+  # make treemap
+  tm_2019 <- treemap::treemap(data_treemap,
+                              index=c("lev1_name","cause_title"),
+                              vSize="VAL_DEATHS_COUNT_NUMERIC",
+                              type="index",
+                              palette = "Set1",
+                              draw = FALSE)
+  
+  tm_plot_data <- tm_2019$tm %>% 
+    mutate(x1 = x0 + w,
+           y1 = y0 + h) %>% 
+    mutate(x = (x0+x1)/2,
+           y = (y0+y1)/2) %>% 
+    mutate(primary_group = ifelse(is.na(cause_title), 1.2, .5)) %>% 
+    mutate(color = case_when(
+      lev1_name=="Communicable, maternal, perinatal and nutritional conditions" ~"#F26829",
+      lev1_name=="Noncommunicable diseases" ~ "#009ADE",
+      lev1_name=="Injuries" ~ "#80BC00",
+      lev1_name=="Other pandemic related causes" ~ "#A6228C"
+    )) %>% 
+    mutate(color = ifelse(is.na(cause_title), NA, color))
+  
+  tm1 <- ggplot(tm_plot_data, aes(xmin = x0, ymin = y0, xmax = x1, ymax = y1)) + 
+    geom_rect(aes(fill = color, size = primary_group),
+              show.legend = FALSE, color = "white", alpha=0.5) +
+    scale_fill_identity() +
+    scale_size(range = range(tm_plot_data$primary_group)) +
+    ggfittext::geom_fit_text(aes(label = cause_title), min.size = 4, color = "black", grow = TRUE, reflow = TRUE) +
+    scale_x_continuous(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
+    theme_void()+
+    labs(title = paste0("Total deaths in 2021: ", format(total_deaths, big.mark = ",", scientific = F)))+   ######### CHANGE BACK TO 2019
+    theme(
+      plot.margin = unit(c(0, 0, 0, 1.5), "cm"),
+      plot.title = element_text(hjust = 0.5, size = 18)
+    )
+  
+  
+  # 2000   
+  lev1 <- cod00  %>%
+    filter(FLAG_LEVEL == 1) %>%
+    select(FLAG_CAUSEGROUP, lev1_name = DIM_GHECAUSE_TITLE) %>%
+    unique()
+  data_treemap_2000 <- data_treemap_2000 %>% left_join(lev1, by = "FLAG_CAUSEGROUP") 
+  
+  data_treemap_2000$lev1_name <- factor(data_treemap_2000$lev1_name, levels = lev1_causes)
+  
+  # add cause fraction to label if over 5%
+  data_treemap_2000 <- data_treemap_2000 %>%
+    mutate(cause_fraction = VAL_DEATHS_COUNT_NUMERIC / sum(VAL_DEATHS_COUNT_NUMERIC)) %>%
+    mutate(cause_title = paste(DIM_GHECAUSE_TITLE, sprintf("(%1.1f%%)", 100*cause_fraction), sep = " "))
+  
+  # make treemap
+  tm_2000 <- treemap::treemap(data_treemap_2000,
+                              index=c("lev1_name","cause_title"),
+                              vSize="VAL_DEATHS_COUNT_NUMERIC",
+                              type="index",
+                              palette = "Set1",
+                              draw = FALSE
+  )
+  
+  tm_plot_data_2000 <- tm_2000$tm %>% 
+    mutate(x1 = x0 + w,
+           y1 = y0 + h) %>% 
+    mutate(x = (x0+x1)/2,
+           y = (y0+y1)/2) %>% 
+    mutate(primary_group = ifelse(is.na(cause_title), 1.2, .5)) %>% 
+    mutate(color = case_when(
+      lev1_name=="Communicable, maternal, perinatal and nutritional conditions" ~"#F26829",
+      lev1_name=="Noncommunicable diseases" ~ "#009ADE",
+      lev1_name=="Injuries" ~ "#80BC00",
+      lev1_name=="Other pandemic related causes" ~ "#A6228C"
+    )) %>% 
+    mutate(color = ifelse(is.na(cause_title), NA, color))
+  
+  
+  tm2 <- ggplot(tm_plot_data_2000, aes(xmin = x0, ymin = y0, xmax = x1, ymax = y1)) + 
+    geom_rect(aes(fill = color, size = primary_group),
+              show.legend = FALSE, color = "white", alpha=0.5) +
+    scale_fill_identity() +
+    scale_size(range = range(tm_plot_data$primary_group)) +
+    ggfittext::geom_fit_text(aes(label = cause_title), min.size = 4, color = "black", grow = TRUE, reflow = TRUE) +
+    scale_x_continuous(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
+    theme_void()+
+    labs(title = paste0("Total deaths in 2000: ", format(total_deaths_2000, big.mark = ",", scientific = F)))+
+    theme(
+      plot.margin = unit(c(0, 0, 0, 0), "cm"),
+      plot.title = element_text(hjust = 0.5, size = 18),
+      legend.position = "bottom"
+    )
+  
+  legt <- ggplot() +
+    geom_tile(aes(x = 1, y = 1), fill = "#F26829", alpha=0.5)+
+    geom_tile(aes(x = 2, y = 1), fill = "#009ADE", size = 1, alpha=0.5) +
+    geom_tile(aes(x = 3, y = 1), fill = "#80BC00", size = 1, alpha=0.5) +
+    geom_tile(aes(x = 4, y = 1), fill = "#A6228C", size = 1, alpha=0.5) +
+    geom_text(aes(x = 1, y = 0.5, label = "Communicable, maternal, perinatal\nand nutritional conditions"), size=4.5, vjust = 1.1)+
+    geom_text(aes(x = 2, y = 0.5, label = "Noncommunicable diseases"), size=4.5, vjust = 1.1)+
+    geom_text(aes(x = 3, y = 0.5, label = "Injuries"), size=4.5, vjust = 1.1)+
+    geom_text(aes(x = 4, y = 0.5, label = "Other pandemic related causes"), size=4.5, vjust = 1.1)+
+    theme_void()+
+    scale_y_continuous(limits = c(-1,2.5))
+  
+  final <- ggdraw() +
+    draw_plot(patchwork::wrap_plots(tm2, tm1, ncol = 2), 0, 0.1, 1, 0.85) +
+    draw_plot(legt, 0.02, 0.045, 0.95, 0.055)
+  
+  return(final)
+  
 }
 
 
@@ -234,86 +628,3 @@ make_donut_uhc <- function(filtered_data, level, year_pie){
   
   print(donut)
 }
-# data_to_hierarchical <- function(data, group_vars, size_var, colors = c("#F6A27C", "#79B5E3", "#BE73AD", "#AACF7F")) {
-#   
-#   dat <- data %>%
-#     select({{ group_vars }}, {{ size_var }})
-#   
-#   ngvars <- ncol(dat) - 1
-#   
-#   names(dat) <- c(str_c("group_var_", seq(1, ngvars)), "value")
-#   
-#   gvars <- names(dat)[seq(1, ngvars)]
-#   
-#   # group to calculate the sum if there are duplicated combinations
-#   dat <- dat %>%
-#     group_by_at(all_of(gvars)) %>%
-#     summarise(value = sum(value, na.rm = TRUE), .groups = "drop") %>%
-#     ungroup() %>%
-#     mutate_if(is.factor, as.character) %>%
-#     arrange(desc(value))
-#   
-#   dat$group_var_1 <- factor(dat$group_var_1, levels = lev1_causes)
-#   
-#   dout <- map(seq_along(gvars), function(depth = 1) {
-#     datg <- dat %>%
-#       arrange(group_var_1) %>%
-#       select(1:depth) %>%
-#       distinct()
-#     
-#     datg_name <- datg %>%
-#       select(depth) %>%
-#       rename_all(~"name")
-#     
-#     datg_id <- datg %>%
-#       unite("id", everything(), sep = "_") %>%
-#       mutate(id = str_to_id_vec(id))
-#     
-#     datg_parent <- datg %>%
-#       select(1:(depth - 1)) %>%
-#       unite("parent", everything(), sep = "_") %>%
-#       mutate(parent = str_to_id(parent))
-#     
-#     dd <- list(datg_name, datg_id)
-#     
-#     # depth != 1 add parents
-#     if (depth != 1) dd <- dd %>% append(list(datg_parent))
-#     
-#     # depth == 1 add colors
-#     if (depth == 1 & !is.null(colors)) {
-#       dd <- dd %>% append(list(tibble(color = rep(colors, length.out = nrow(datg)))))
-#     }
-#     
-#     # depth == lastdepth add value
-#     if (depth == ngvars) dd <- dd %>% append(list(dat %>% select(value)))
-#     
-#     dd <- dd %>%
-#       bind_cols() %>%
-#       mutate(level = depth)
-#     
-#     dd
-#     
-#     list_parse(dd)
-#   })
-#   
-#   dout <- reduce(dout, c)
-#   
-#   dout
-# }
-# 
-# 
-# str_to_id_vec <- function(x) {
-#   
-#   # x <- c("A_ aa", "A_  Aa", "a_   aa"
-#   
-#   tibble(
-#     var = x,
-#     id = str_to_id(x),
-#     un = cumsum(duplicated(id))
-#   ) %>%
-#     mutate(
-#       un = ifelse(un == 0, "", str_c("_", un)),
-#       id2 = str_c(id, un)
-#     ) %>%
-#     pull("id2")
-# }

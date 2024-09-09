@@ -28,6 +28,8 @@ library(patchwork)
 #library(kableExtra)
 #options(knitr.kable.NA = '')
 library(flextable)
+library(DemoDecomp)
+library(ggbump)
 #library(gt)
 
 source("rmd/graph_functions.R")
@@ -36,7 +38,22 @@ load(file = "data_2021.rda")
 load(file = "sdgdata_new.rda")
 set.seed(1)
 
-country_table <- ghost::gho_dimension_values("COUNTRY")
+# customcolors <- c("#1C99DB", "#85C122", "#F2662A", "#F2A60D", "#A51C87", "#5F3B8B" ,
+#                   "#EEDCD5", "#00FCDE", "#CA00FB", "#FB0D94", "#7D2E16", "#1653FB",
+#                   "#0D6053", "#FC000D", "#22FE2A", "#86760D", "#FD0DE4", "#FABDFF", 
+#                   "#F1E30D", "#A9EBFF", "#FE97B5", "#845D6E", "#B3F0BB", "#B083FE",
+#                   "#22E989", "#AB0035", "#167A26", "#FBBB98", "#E673EE", "#EBE695")
+# customcolors = createPalette(30,  c("#009ADE", "#80BC00", "#F26829", "#F4A81D", "#A6228C", "#5B2C86"))
+
+customcolors <- c("#1C99DB", "#85C122", "#F2A60D", "#A51C87", "#A200FF", "#EFDDDA", 
+                  "#00FCDE" ,"#A21C16", "#226542" ,"#7D4F26" ,"#D199FF" ,"#564970",
+                  "#22FE2A", "#F894AC", "#0072FF", "#F1E30D", "#A7EAFF", "#B2EEB9" ,
+                  "#CABB73", "#22E989", "#FF781C", "#FB356A" ,"#4740AD" ,"#F9BBF1" ,
+                  "#AA00BD", "#F83DCB", "#167F8B")
+
+cod00_ <- read.csv("input/cod2000_byage.csv")
+
+country_table <- read.csv("rmd/country_table.csv")
 
 # Myhcmap <- rjson::fromJSON(file="poly.json")
 # Myhcmap2 <- rjson::fromJSON(file="line.json")

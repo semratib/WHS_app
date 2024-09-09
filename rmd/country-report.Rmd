@@ -326,7 +326,7 @@ ft
 
 ```{r donut_uhc_tracer, fig.cap=paste0("UHC tracer indicator progress in ", country, ", 2018-2030."), fig.height = 8, fig.width=7}
 # donut_filtered <- prep_donut_data()
-
+year_pie = 2018
 donut_data <- sdg_data %>%
     filter(billion == "uhc") %>%
     filter(aggregate_id == country_iso) %>%

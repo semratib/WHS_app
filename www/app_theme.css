@@ -1,5 +1,16 @@
-h1, h2 {
-    color: #00205C;
+h1 {
+  color: white;
+}
+
+h2 {
+  color: white;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0.2in;
+  padding-bottom: 0.2in;
+  padding-left: 0.3in;
+  background-color: #00205C;
+  z-index: 1;
 }
 
 h3 { 
@@ -14,6 +25,8 @@ h5 {
     color: #80BC00;font-weight:600;
 }
 
+.irs-grid-text{font-size:14px;}
+ 
 <!-- .virtual-select{font-size:150%; color: #00205C; !important}-->
 .vscomp-wrapper {
     color: #00205C;
@@ -28,7 +41,7 @@ h5 {
 .vscomp-toggle-button {
     align-items: center;
     background-color: #fff;
-    border: 1px solid #B7B7B7  !important;
+    border: 1px solid #B7B7B7 !important;
     border-radius: 20px;
     cursor: pointer;
     display: flex;
@@ -70,17 +83,22 @@ max-width: 65%
 <!--      } -->
 .nav-tabs > li > a {
   color: #00205C;
+  background-color: #c9ddf3;
   font-size: 18px;
+<!--  padding-left: 2in; -->
+<!--  padding-right: 2in; -->
 }
 .nav-tabs{
-border-bottom: 1px solid rgb(0, 32, 92);
-color: #00205C;
+  border-bottom: 1px solid rgb(0, 32, 92);
+  border-bottom-color: transparent;
+  color: #00205C;
+  background-color: #c9ddf3;
 }
 
 .nav-tabs>li.active>a, .nav-tabs>li.active>a:focus, .nav-tabs>li.active>a:hover {
     color: #00205C;
     cursor: default;
-    background-color: #fff;
+    background-color: #c9ddf3;
     border: 1px solid #00205C;
     border-bottom-color: transparent;
     <!-- font-size: 18px; -->
@@ -94,6 +112,16 @@ color: #00205C;
 .nav-pills > li > a {
     border-radius: 4px;
     color: #009ADE;
+}
+
+.tab-content{
+  padding-left: 0.3in;
+  padding-right: 0.3in;
+}
+
+.radio-inline{
+  margin-right: 40px;
+  
 }
 
 
