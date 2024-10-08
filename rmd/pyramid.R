@@ -13,14 +13,14 @@
 #' @export
 #'
 #' @examples
-make_pyramid <- function(data_by_sex, data, country_iso, year, who_region_countries, country_table, metric = "deaths") {
+make_pyramid <- function(data_by_sex, country_iso, year, who_region_countries, country_table, metric = "deaths") {
   
   # subset data
   data_pyramid <- data_by_sex %>%
     filter(DIM_COUNTRY_CODE %in% who_region_countries &
-             # DIM_YEAR_CODE == year &
-             # DIM_AGEGROUP_CODE == "TOTAL" &
-             # DIM_SEX_CODE != "TOTAL" &
+             DIM_YEAR_CODE == year &
+             DIM_AGEGROUP_CODE == "TOTAL" &
+             DIM_SEX_CODE != "TOTAL" &
              FLAG_LEVEL == 1)
   
   # merge on country names
@@ -44,10 +44,11 @@ make_pyramid <- function(data_by_sex, data, country_iso, year, who_region_countr
   }
   
   # pick country order
-  country_order_iso <- data %>%
+  country_order_iso <- data_by_sex %>%
     filter(DIM_COUNTRY_CODE %in% who_region_countries &
-             # DIM_YEAR_CODE == year & DIM_AGEGROUP_CODE == "TOTAL" &
-             # DIM_SEX_CODE == "TOTAL" & 
+             DIM_YEAR_CODE == year &
+             DIM_AGEGROUP_CODE == "TOTAL" &
+             DIM_SEX_CODE == "TOTAL" &
              FLAG_LEVEL == 0) %>%
     arrange(output_var) %>%
     pull(DIM_COUNTRY_CODE)

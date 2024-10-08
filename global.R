@@ -30,11 +30,14 @@ library(patchwork)
 library(flextable)
 library(DemoDecomp)
 library(ggbump)
+library(openxlsx)
+library(patchwork)
+# library(webshot)
 #library(gt)
 
 source("rmd/graph_functions.R")
 
-load(file = "data_2021.rda")
+load(file = "data_2021v2.rda")
 load(file = "sdgdata_new.rda")
 set.seed(1)
 
@@ -51,7 +54,46 @@ customcolors <- c("#1C99DB", "#85C122", "#F2A60D", "#A51C87", "#A200FF", "#EFDDD
                   "#CABB73", "#22E989", "#FF781C", "#FB356A" ,"#4740AD" ,"#F9BBF1" ,
                   "#AA00BD", "#F83DCB", "#167F8B")
 
-cod00_ <- read.csv("input/cod2000_byage.csv")
+# cod00_ <- read.csv("input/cod2000_byage.csv")
+
+cod_decomp_time <- read.csv("input/level1_byage_sex_year.csv") %>% 
+  mutate(sex = case_when(
+    DIM_SEX_CODE=="TOTAL" ~ "Both sexes", 
+    DIM_SEX_CODE=="FEMALE" ~ "Female", 
+    DIM_SEX_CODE=="MALE" ~ "Male")) %>% 
+  mutate(country = iso3_to_names(DIM_COUNTRY_CODE),
+         region = iso3_to_regions(DIM_COUNTRY_CODE)) %>% 
+  mutate(region2 = case_when(
+    region=="WPR" ~"Western Pacific Region",
+    region=="SEAR" ~ "South-East Asia Region",
+    region=="EMR" ~ "Eastern Mediterranean Region",
+    region=="EUR" ~ "European Region",
+    region=="AMR" ~ "Region of the Americas",
+    region=="AFR" ~ "African Region")) %>% 
+  mutate(age = str_remove(DIM_AGEGROUP_CODE, "^Y")) %>% 
+  mutate(age = str_extract(age, "^[:digit:]+")) %>% 
+  mutate(age = ifelse(DIM_AGEGROUP_CODE=="YGE_85", "85", age)) %>% 
+  mutate(age = as.numeric(age)) %>% 
+  filter(DIM_AGEGROUP_CODE != "TOTAL")
+
+start_year <- c("2000", "2005", "2010", "2015", "2019")
+end_year <- c("2005", "2010", "2015", "2019", "2021")
+years_decomp <- data.frame(start_year, end_year)
+
+data_pyramid <- read.csv("input/data_pyramid.csv") %>% 
+  mutate(sex = case_when(
+    DIM_SEX_CODE=="TOTAL" ~ "Both sexes", 
+    DIM_SEX_CODE=="FEMALE" ~ "Female", 
+    DIM_SEX_CODE=="MALE" ~ "Male")) %>% 
+  mutate(country = iso3_to_names(DIM_COUNTRY_CODE),
+         region = iso3_to_regions(DIM_COUNTRY_CODE)) %>% 
+  mutate(region2 = case_when(
+    region=="WPR" ~"Western Pacific Region",
+    region=="SEAR" ~ "South-East Asia Region",
+    region=="EMR" ~ "Eastern Mediterranean Region",
+    region=="EUR" ~ "European Region",
+    region=="AMR" ~ "Region of the Americas",
+    region=="AFR" ~ "African Region"))
 
 country_table <- read.csv("rmd/country_table.csv")
 
@@ -97,10 +139,10 @@ top10 <- top10 %>%
     FLAG_CAUSEGROUP==2 ~ "Communicable, maternal, perinatal and nutritional conditions" ,
     FLAG_CAUSEGROUP==1 ~ "Noncommunicable diseases",
     FLAG_CAUSEGROUP==3 ~ "Injuries",
-    FLAG_CAUSEGROUP==4 ~ "Other pandemic related causes"
+    FLAG_CAUSEGROUP==4 ~ "Other COVID-19 pandemic-related outcomes"
   ))
 
-lev1_causes <- c("Communicable, maternal, perinatal and nutritional conditions", "Noncommunicable diseases", "Injuries", "Other pandemic related causes")
+lev1_causes <- c("Communicable, maternal, perinatal and nutritional conditions", "Noncommunicable diseases", "Injuries", "Other COVID-19 pandemic-related outcomes")
 level2 <- cod19 %>% filter(FLAG_LEVEL==2) %>% distinct(DIM_GHECAUSE_TITLE) %>% pull()
 # level3 <- cod19 %>% filter(FLAG_LEVEL==3) %>% distinct(DIM_GHECAUSE_TITLE) %>% pull()
 
@@ -143,13 +185,12 @@ ind <- annexdata3 %>% distinct(name) %>% pull()
 yeartab <- annexdata3 %>% distinct(year) %>% arrange(desc(year)) %>% pull()
 
 
-
 ### HEATMAP
 
 # Global
 globalheat <- cod19 %>%
   filter(FLAG_LEVEL == 2) %>%
-  filter(DIM_AGEGROUP_CODE==101) %>% 
+  filter(age==101) %>% 
   mutate(country = "Global") %>%
   select(country, sex, DIM_GHECAUSE_TITLE, VAL_DEATHS_COUNT_NUMERIC) %>% 
   group_by(country, sex, DIM_GHECAUSE_TITLE) %>% 
@@ -158,7 +199,7 @@ globalheat <- cod19 %>%
   left_join(
     cod19 %>%
       filter(FLAG_LEVEL == 2) %>%
-      filter(DIM_AGEGROUP_CODE==101) %>% 
+      filter(age==101) %>% 
       mutate(country = "Global") %>% 
       group_by(country, sex) %>% 
       summarise(total_deaths = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
@@ -174,7 +215,7 @@ globalheat <- cod19 %>%
 # Region
 regionheat <- cod19 %>%
   filter(FLAG_LEVEL == 2) %>%
-  filter(DIM_AGEGROUP_CODE==101) %>% 
+  filter(age==101) %>% 
   select(country = region2, sex, DIM_GHECAUSE_TITLE, VAL_DEATHS_COUNT_NUMERIC) %>% 
   group_by(country, sex, DIM_GHECAUSE_TITLE) %>% 
   summarise(deaths = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
@@ -182,7 +223,7 @@ regionheat <- cod19 %>%
   left_join(
     cod19 %>%
       filter(FLAG_LEVEL == 2) %>%
-      filter(DIM_AGEGROUP_CODE==101) %>% 
+      filter(age==101) %>% 
       select(country = region2, sex, DIM_GHECAUSE_TITLE, VAL_DEATHS_COUNT_NUMERIC) %>% 
       group_by(country, sex) %>% 
       summarise(total_deaths = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
@@ -198,7 +239,7 @@ regionheat <- cod19 %>%
 # Country
 countryheat <- cod19 %>%
   filter(FLAG_LEVEL == 2) %>%
-  filter(DIM_AGEGROUP_CODE==101) %>% 
+  filter(age==101) %>% 
   group_by(country, sex) %>%
   mutate(prop_deaths = VAL_DEATHS_COUNT_NUMERIC / sum(VAL_DEATHS_COUNT_NUMERIC),
          rank = rank(-prop_deaths, ties.method = "first")) %>%
@@ -290,3 +331,45 @@ rm(countryheatv2_2021, countryheatv2_2000)
 #                "same" = "#009ADE")
 #   )+ theme_void()
   
+#### 3B Contributions
+config_all <- config::get(
+  file = "input/all.yml",
+  config = Sys.getenv("USER")
+)
+
+ind_labels <- openxlsx::readWorkbook("input/indicator_labels WHS 2.xlsx")
+
+inds <- get_inds(get_forecast_inds = FALSE, get_billion_inds = TRUE)
+inds$uhc <- c(inds$uhc, "population")
+inds$hep <- config_all$hep_intermediate_inds
+inds_summary <- c("hpop" = "hpop_healthier", "uhc" = "uhc_billion", "hep" = "hep_idx")
+
+inds_all <- inds %>%
+  unlist(use.names = FALSE) %>%
+  unique() %>%
+  c(inds_summary) %>%
+  unname()
+
+all_plt_dat <- arrow::read_parquet("input/2024-03-26-10-06_summary.parquet") %>% 
+  mutate(country = whoville::iso3_to_names(aggregate_id),
+         country = ifelse(is.na(country),
+                          case_when(
+                            aggregate_id=="global" ~"Global",
+                            aggregate_id=="AFR" ~"African Region",
+                            aggregate_id=="AMR" ~"Region of the Americas",
+                            aggregate_id=="EMR" ~"Eastern Mediterranean Region",
+                            aggregate_id=="EUR" ~"European Region",
+                            aggregate_id=="SEAR" ~"South-East Asia Region",
+                            aggregate_id=="WPR" ~"Western Pacific Region"
+                          ),
+                          country)
+  ) %>% 
+  mutate(
+    contribution = mean_contribution,
+    contribution_mln = contribution / 1e6
+  ) 
+
+
+
+
+
