@@ -18,15 +18,115 @@ server = function(input, output, session) {
   output$ledecomptext <- renderText({paste0("Attribution of changes in life expectancy at birth (2000 to 2021) to changes in the top causes of death in 2021, ", input$iso3le, ".")})
   output$ledecomptext_time <- renderText({paste0("Decomposition of the change in life expectancy at birth by level 1 causes of death, ", input$iso3le, ".")})
   output$TB_contrib_text <- renderText({paste0(input$TB, " indicator contributions to the Triple Billions, ", input$iso3le, ".")})
+  output$uhctext <- renderText({paste0("UHC tracer indicator progress in ",  input$iso3le, ", 2018-2030.")})
   
   # Benchmarking
   output$heatmapv2text <- renderText({paste0("Compare the countries with the highest burden of ", input$codheatv2, " in 2000 and 2021.")})
   output$sdgv2text <- renderText({paste0("Countries with lowest performance in ", input$sdgind, " in 2018 and 2021.")})
-  output$uhctext <- renderText({paste0("UHC tracer indicator progress in ",  input$iso3le, ", 2018-2030.")})
+  
+  # MMR
+  output$trajtext <- renderText({paste0("Potential trajectories of MMR in ",  input$iso3cp, ", 2000-2030.")})
+  output$rmnchtext <- renderText({paste0("Sub-national estimates of RMNCH service coverage from most recent household survey in ", input$iso3cp, ".")})
   
   #################################################################################################################
   ####  Country Profile ####
   #################################################################################################################
+  
+  # Download links
+  selected_data <- reactive({
+    if(input$pages == "Life expectancy and Healthy life expectancy time-series"){
+      select_tbl <- ledata()
+    }else if(input$pages == "Life expectancy calculator"){
+      select_tbl <- lecalc_data()
+    }else if(input$pages == "Life expectancy decomposition by cause of death"){
+      select_tbl <- decomp_data() %>% select(sex, cause = name, contribution_to_change_in_life_expectancy_in_years = value)
+    }else if(input$pages == "Life expectancy decomposition over time"){
+      select_tbl <- decomp_data_time() %>% select(sex, year, cause = name, contribution_to_change_in_life_expectancy_in_years = value)
+    }else if(input$pages == "Change in rank of cause of death"){
+      select_tbl <- codrank_data()
+    }else if(input$pages == "Change in distribution of cause of death"){
+      select_tbl <- data_tree_csv()
+    }else if(input$pages == "Triple Billions Indicator Progress"){
+      select_tbl <- datatablesdg()
+    }else if(input$pages == "Triple Billions Indicator Contributions"){
+      select_tbl <- TBcontrib_data()$plt_dat
+    }
+    return(select_tbl)
+  })
+  
+  selected_image <- reactive({
+    if(input$pages == "Life expectancy and Healthy life expectancy time-series"){
+      select_tbl <- legraph_pdf()
+    }else if(input$pages == "Life expectancy calculator"){
+      select_tbl <- lecalc_barline_pdf()
+    }else if(input$pages == "Life expectancy decomposition by cause of death"){
+      select_tbl <- decomp_graph_pdf()
+    }else if(input$pages == "Life expectancy decomposition over time"){
+      select_tbl <- decomp_time_graph()
+    }else if(input$pages == "Change in rank of cause of death"){
+      select_tbl <- codrank_graph_pdf()
+    }else if(input$pages == "Change in distribution of cause of death"){
+      select_tbl <- tree_graph_pdf()
+    }else if(input$pages == "Triple Billions Indicator Progress"){
+      select_tbl <- tablesdg()
+    }else if(input$pages == "Triple Billions Indicator Contributions"){
+      select_tbl <- TBcontrib_data()$plt + labs(title = paste0(input$TB, " indicator contributions to the Triple Billions, ", input$iso3le, ", 2018-2030."))
+    }
+    return(select_tbl)
+  })
+  
+  output$data_all <- downloadHandler(
+    filename = function() {
+      paste("data", ".csv", sep = "")
+    },
+    content = function(file) {
+      write.csv(selected_data(), file, row.names = FALSE)
+    }
+  )
+  
+  output$jpeg_all <- downloadHandler(
+    filename = function() {
+      if(input$pages == "Triple Billions Indicator Progress"){
+        paste("triplebillion", ".png", sep = "")
+      }else{
+        paste("graph", ".jpeg", sep = "")
+      }
+    },
+    content = function(file) {
+      if(input$pages == "Triple Billions Indicator Progress"){
+        save_as_image(selected_image(), path = file, webshot = "webshot")
+      }else{
+        ggsave(selected_image(), filename = file, width = 16, height = 8, units = "in", dpi = 100)
+      }
+    }
+  )
+  
+  output$pdf_all <- downloadHandler(
+    filename = function() {
+      paste("graph", ".pdf", sep = "")
+    },
+    content = function(file) {
+      ggsave(selected_image(), filename = file, width = 16, height = 8, units = "in")
+    }
+  )
+  
+  # observe({
+  #   if(input$pages == "Generate country report") {
+  #     shinyjs::disable("data_all")
+  #   }
+  # })
+  
+  observe({
+    shinyjs::toggleState("data_all", condition = (input$pages!= "Generate country report"))
+  })
+  
+  observe({
+    shinyjs::toggleState("jpeg_all", condition = (input$pages!= "Generate country report"))
+  })
+  
+  observe({
+    shinyjs::toggleState("pdf_all", condition = (input$pages!= "Generate country report"))
+  })
   
   # Life and health life expectancy
   ledata <- reactive({
@@ -99,7 +199,7 @@ server = function(input, output, session) {
       geom_text(data = exp %>% filter(name=="Healthy life expectancy at birth (years)" & year!= 2020),
                 aes(x=year, y=value, label = round(value,1)), vjust=2, size=4.5, color ="#80BC00") +
       theme_classic()+
-      ylab("")+ xlab("")+
+      ylab("")+ xlab("")+ labs(caption = "Grey shaded area represents the difference between life expectancy and healthy life expectancy.")+
       scale_y_continuous(limits = c(round(min, 0)-2,round(max, 0)+2)) +
       scale_x_continuous(breaks = c(2000, 2010, 2019, 2020, 2021)) +
       # scale_x_continuous(breaks = c(2000, 2010, 2019)) +
@@ -108,6 +208,7 @@ server = function(input, output, session) {
       facet_wrap(~sex) +
       theme(axis.text=element_text(size=14),
             axis.text.x = element_text(angle = 45, vjust = 0.5, hjust = 0.5),
+            plot.caption = element_text(size = 14),
             legend.position = "bottom",
             legend.title = element_blank(),
             legend.text = element_text(size = 14),
@@ -126,32 +227,32 @@ server = function(input, output, session) {
   
   output$lehe <- renderPlot({ legraph() })
   
-  output$data_le <- downloadHandler(
-    filename = function() {
-      paste("le", ".csv", sep = "")
-    },
-    content = function(file) {
-      write.csv(ledata(), file, row.names = FALSE)
-    }
-  )
-
-  output$jpeg_le <- downloadHandler(
-    filename = function() {
-      paste("le", ".jpeg", sep = "")
-    },
-    content = function(file) {
-      ggsave(legraph_pdf(), filename = file, width = 16, height = 8, units = "in", dpi = 100)
-    }
-    )
-  
-  output$pdf_le <- downloadHandler(
-    filename = function() {
-      paste("le", ".pdf", sep = "")
-    },
-    content = function(file) {
-      ggsave(legraph_pdf(), filename = file, width = 16, height = 8, units = "in")
-    }
-  )
+  # output$data_le <- downloadHandler(
+  #   filename = function() {
+  #     paste("le", ".csv", sep = "")
+  #   },
+  #   content = function(file) {
+  #     write.csv(ledata(), file, row.names = FALSE)
+  #   }
+  # )
+  # 
+  # output$jpeg_le <- downloadHandler(
+  #   filename = function() {
+  #     paste("le", ".jpeg", sep = "")
+  #   },
+  #   content = function(file) {
+  #     ggsave(legraph_pdf(), filename = file, width = 16, height = 8, units = "in", dpi = 100)
+  #   }
+  #   )
+  # 
+  # output$pdf_le <- downloadHandler(
+  #   filename = function() {
+  #     paste("le", ".pdf", sep = "")
+  #   },
+  #   content = function(file) {
+  #     ggsave(legraph_pdf(), filename = file, width = 16, height = 8, units = "in")
+  #   }
+  # )
 
   # Top 5 causes life expectancy
   codiso3data <- reactive({
@@ -550,7 +651,7 @@ server = function(input, output, session) {
       scale_fill_manual(values = c("Communicable, maternal, perinatal and nutritional conditions" = "#F26829", 
                                    "Noncommunicable diseases" = "#009ADE", 
                                    "Injuries" = "#80BC00",
-                                   "Other pandemic related causes" = "#A6228C"))+
+                                   "Other COVID-19 pandemic-related outcomes" = "#A6228C"))+
       labs(subtitle = "Number of deaths, 2021") +
       theme(
         plot.margin = unit(c(0,0,0,0), "cm"),
@@ -624,37 +725,41 @@ server = function(input, output, session) {
       
     }
    
-    patchwork::wrap_plots(barcod, legraph, ncol = 2) + 
+    patchwork::wrap_plots(barcod + 
+                            labs(caption = "Note: Grey bars represent the original number of deaths.") +
+                            theme(plot.caption = element_text(size = 9)), 
+                          legraph, 
+                          ncol = 2) + 
       plot_annotation(subtitle = paste0("Life expectancy in 2021 as a result of changes to the top 10 causes of death in 2021: ", input$iso3le, ", ", input$sexle, "."))
 
   })
   
-  output$data_lecalc <- downloadHandler(
-    filename = function() {
-      paste("life_expectancy_calculation", ".xlsx", sep = "")
-    },
-    content = function(file) {
-      write.xlsx(list("life_expect" = lecalc_data(), "cause_of_death" = codiso3data()), file = file)
-    }
-  )
-  
-  output$jpeg_lecalc <- downloadHandler(
-    filename = function() {
-      paste("life_expectancy_calculation", ".jpeg", sep = "")
-    },
-    content = function(file) {
-      ggsave(lecalc_barline_pdf(), filename = file, width = 15, height = 8, units = "in", dpi = 100)
-    }
-  )
-  
-  output$pdf_lecalc <- downloadHandler(
-    filename = function() {
-      paste("life_expectancy_calculation", ".pdf", sep = "")
-    },
-    content = function(file) {
-      ggsave(lecalc_barline_pdf(), filename = file, width = 15, height = 8, units = "in")
-    }
-  )
+  # output$data_lecalc <- downloadHandler(
+  #   filename = function() {
+  #     paste("life_expectancy_calculation", ".xlsx", sep = "")
+  #   },
+  #   content = function(file) {
+  #     write.xlsx(list("life_expect" = lecalc_data(), "cause_of_death" = codiso3data()), file = file)
+  #   }
+  # )
+  # 
+  # output$jpeg_lecalc <- downloadHandler(
+  #   filename = function() {
+  #     paste("life_expectancy_calculation", ".jpeg", sep = "")
+  #   },
+  #   content = function(file) {
+  #     ggsave(lecalc_barline_pdf(), filename = file, width = 15, height = 8, units = "in", dpi = 100)
+  #   }
+  # )
+  # 
+  # output$pdf_lecalc <- downloadHandler(
+  #   filename = function() {
+  #     paste("life_expectancy_calculation", ".pdf", sep = "")
+  #   },
+  #   content = function(file) {
+  #     ggsave(lecalc_barline_pdf(), filename = file, width = 15, height = 8, units = "in")
+  #   }
+  # )
   
   
   # Life expectancy Decomposition
@@ -856,9 +961,7 @@ server = function(input, output, session) {
         aes(xmin = sex.id-0.35, xmax = sex.id+0.35, y=value, color = year), size = 1.5, show.legend = F
       ) +
       coord_flip() +
-      ylab("Life expectancy at birth")+ xlab("")+
-      # labs(caption = str_wrap("Life expectancy is presented as vertical lines: black is life expectancy in 2000, blue is life expectancy in 2021. Causes of death to the left of ", 100)
-      # )+
+      ylab("Life expectancy at birth (years)")+ xlab("")+
       theme_classic()+
       theme(legend.position = "bottom",
             axis.text.x=element_text(size=20),
@@ -884,32 +987,32 @@ server = function(input, output, session) {
   
   output$decomp <- renderPlot({ decomp_graph() }) %>% bindCache(input$iso3le)
   
-  output$data_decomp <- downloadHandler(
-    filename = function() {
-      paste("life_expectancy_decomp_country", ".csv", sep = "")
-    },
-    content = function(file) {
-      write.csv(decomp_data() %>% select(sex, cause = name, contribution_to_change_in_life_expectancy_in_years = value), file, row.names = FALSE)
-    }
-  )
-  
-  output$jpeg_decomp <- downloadHandler(
-    filename = function() {
-      paste("life_expectancy_decomp_country", ".jpeg", sep = "")
-    },
-    content = function(file) {
-      ggsave(decomp_graph_pdf(), filename = file, width = 15, height = 8, units = "in", dpi = 100)
-    }
-  )
-  
-  output$pdf_decomp <- downloadHandler(
-    filename = function() {
-      paste("life_expectancy_decomp_country", ".pdf", sep = "")
-    },
-    content = function(file) {
-      ggsave(decomp_graph_pdf(), filename = file, width = 15, height = 8, units = "in")
-    }
-  )
+  # output$data_decomp <- downloadHandler(
+  #   filename = function() {
+  #     paste("life_expectancy_decomp_country", ".csv", sep = "")
+  #   },
+  #   content = function(file) {
+  #     write.csv(decomp_data() %>% select(sex, cause = name, contribution_to_change_in_life_expectancy_in_years = value), file, row.names = FALSE)
+  #   }
+  # )
+  # 
+  # output$jpeg_decomp <- downloadHandler(
+  #   filename = function() {
+  #     paste("life_expectancy_decomp_country", ".jpeg", sep = "")
+  #   },
+  #   content = function(file) {
+  #     ggsave(decomp_graph_pdf(), filename = file, width = 15, height = 8, units = "in", dpi = 100)
+  #   }
+  # )
+  # 
+  # output$pdf_decomp <- downloadHandler(
+  #   filename = function() {
+  #     paste("life_expectancy_decomp_country", ".pdf", sep = "")
+  #   },
+  #   content = function(file) {
+  #     ggsave(decomp_graph_pdf(), filename = file, width = 15, height = 8, units = "in")
+  #   }
+  # )
   
   
   # Life expectancy Decomposition over time
@@ -1081,7 +1184,7 @@ server = function(input, output, session) {
         fill = name
       )) +
       geom_line(data = le, aes(x = year, y = value, color = leg) , arrow = arrow(length = unit(0.30,"cm"), type = "closed")) +
-      ylab("Life expectancy at birth")+ xlab("Year range")+
+      ylab("Life expectancy at birth (years)")+ xlab("Year range")+
       theme_classic()+
       theme(axis.text.x=element_text(size=20),
             axis.title.x =element_text(size=20),
@@ -1102,32 +1205,32 @@ server = function(input, output, session) {
   
   output$decomp_time <- renderPlot({ decomp_time_graph() }) %>% bindCache(input$iso3le, input$sex_decomptime)
   
-  output$data_decomp_time <- downloadHandler(
-    filename = function() {
-      paste("life_expectancy_decomp_country_time", ".csv", sep = "")
-    },
-    content = function(file) {
-      write.csv(decomp_data_time() %>% select(sex, year, cause = name, contribution_to_change_in_life_expectancy_in_years = value), file, row.names = FALSE)
-    }
-  )
-  
-  output$jpeg_decomp_time <- downloadHandler(
-    filename = function() {
-      paste("life_expectancy_decomp_country_time", ".jpeg", sep = "")
-    },
-    content = function(file) {
-      ggsave(decomp_time_graph(), filename = file, width = 15, height = 10, units = "in", dpi = 100)
-    }
-  )
-  
-  output$pdf_decomp_time <- downloadHandler(
-    filename = function() {
-      paste("life_expectancy_decomp_country_time", ".pdf", sep = "")
-    },
-    content = function(file) {
-      ggsave(decomp_time_graph(), filename = file, width = 15, height = 10, units = "in")
-    }
-  )
+  # output$data_decomp_time <- downloadHandler(
+  #   filename = function() {
+  #     paste("life_expectancy_decomp_country_time", ".csv", sep = "")
+  #   },
+  #   content = function(file) {
+  #     write.csv(decomp_data_time() %>% select(sex, year, cause = name, contribution_to_change_in_life_expectancy_in_years = value), file, row.names = FALSE)
+  #   }
+  # )
+  # 
+  # output$jpeg_decomp_time <- downloadHandler(
+  #   filename = function() {
+  #     paste("life_expectancy_decomp_country_time", ".jpeg", sep = "")
+  #   },
+  #   content = function(file) {
+  #     ggsave(decomp_time_graph(), filename = file, width = 15, height = 10, units = "in", dpi = 100)
+  #   }
+  # )
+  # 
+  # output$pdf_decomp_time <- downloadHandler(
+  #   filename = function() {
+  #     paste("life_expectancy_decomp_country_time", ".pdf", sep = "")
+  #   },
+  #   content = function(file) {
+  #     ggsave(decomp_time_graph(), filename = file, width = 15, height = 10, units = "in")
+  #   }
+  # )
   
   
   # Arrow
@@ -1252,32 +1355,32 @@ server = function(input, output, session) {
   
   output$codrank <- renderPlot({ codrank_graph() })
   
-  output$data_arrow <- downloadHandler(
-    filename = function() {
-      paste("codrankdata", ".csv", sep = "")
-    },
-    content = function(file) {
-      write.csv(codrank_data(), file, row.names = FALSE)
-    }
-  )
-  
-  output$jpeg_arrow <- downloadHandler(
-    filename = function() {
-      paste("codrank", ".jpeg", sep = "")
-    },
-    content = function(file) {
-      ggsave(codrank_graph_pdf(), filename = file, width = 15, height = 8, units = "in", dpi = 100)
-    }
-  )
-  
-  output$pdf_arrow <- downloadHandler(
-    filename = function() {
-      paste("codrank", ".pdf", sep = "")
-    },
-    content = function(file) {
-      ggsave(codrank_graph_pdf(), filename = file, width = 15, height = 8, units = "in")
-    }
-  )
+  # output$data_arrow <- downloadHandler(
+  #   filename = function() {
+  #     paste("codrankdata", ".csv", sep = "")
+  #   },
+  #   content = function(file) {
+  #     write.csv(codrank_data(), file, row.names = FALSE)
+  #   }
+  # )
+  # 
+  # output$jpeg_arrow <- downloadHandler(
+  #   filename = function() {
+  #     paste("codrank", ".jpeg", sep = "")
+  #   },
+  #   content = function(file) {
+  #     ggsave(codrank_graph_pdf(), filename = file, width = 15, height = 8, units = "in", dpi = 100)
+  #   }
+  # )
+  # 
+  # output$pdf_arrow <- downloadHandler(
+  #   filename = function() {
+  #     paste("codrank", ".pdf", sep = "")
+  #   },
+  #   content = function(file) {
+  #     ggsave(codrank_graph_pdf(), filename = file, width = 15, height = 8, units = "in")
+  #   }
+  # )
   
   
   # Treemap
@@ -1344,32 +1447,32 @@ server = function(input, output, session) {
   
   output$treemap <- renderPlot({ tree_graph() })
   
-  output$data_treemap <- downloadHandler(
-    filename = function() {
-      paste("treemapdata", ".csv", sep = "")
-    },
-    content = function(file) {
-      write.csv(data_tree_csv(), file, row.names = FALSE)
-    }
-  )
-  
-  output$jpeg_treemap <- downloadHandler(
-    filename = function() {
-      paste("treemap", ".jpeg", sep = "")
-    },
-    content = function(file) {
-      ggsave(tree_graph_pdf(), filename = file, width = 15, height = 8, units = "in", dpi = 100)
-    }
-  )
-  
-  output$pdf_treemap <- downloadHandler(
-    filename = function() {
-      paste("treemap", ".pdf", sep = "")
-    },
-    content = function(file) {
-      ggsave(tree_graph_pdf(), filename = file, width = 15, height = 8, units = "in")
-    }
-  )
+  # output$data_treemap <- downloadHandler(
+  #   filename = function() {
+  #     paste("treemapdata", ".csv", sep = "")
+  #   },
+  #   content = function(file) {
+  #     write.csv(data_tree_csv(), file, row.names = FALSE)
+  #   }
+  # )
+  # 
+  # output$jpeg_treemap <- downloadHandler(
+  #   filename = function() {
+  #     paste("treemap", ".jpeg", sep = "")
+  #   },
+  #   content = function(file) {
+  #     ggsave(tree_graph_pdf(), filename = file, width = 15, height = 8, units = "in", dpi = 100)
+  #   }
+  # )
+  # 
+  # output$pdf_treemap <- downloadHandler(
+  #   filename = function() {
+  #     paste("treemap", ".pdf", sep = "")
+  #   },
+  #   content = function(file) {
+  #     ggsave(tree_graph_pdf(), filename = file, width = 15, height = 8, units = "in")
+  #   }
+  # )
   
   
   ## UHC Circle graph
@@ -1565,33 +1668,33 @@ server = function(input, output, session) {
   
   output$sdgtable_legend <- renderPlot({
     ggplot() +
-      geom_tile(aes(x = 1, y = 1), fill = "#AACF7F", alpha=0.5)+
-      geom_tile(aes(x = 2, y = 1), fill = "#F5C46A", size = 1, alpha=0.5) +
-      geom_tile(aes(x = 3, y = 1), fill = "#F6A27C", size = 1, alpha=0.5) +
-      geom_text(aes(x = 1, y = 0.5, label = "Likely Achieve by 2030"), size=4.5, vjust = 1.1)+
-      geom_text(aes(x = 2, y = 0.5, label = str_wrap("Within 10% of target by 2030"), 15), size=4.5, vjust = 1.1)+
-      geom_text(aes(x = 3, y = 0.5, label = "Won't Achieve by 2030"), size=4.5, vjust = 1.1)+
+      geom_tile(aes(x = 1, y = 1), fill = "#AACF7F", alpha=0.8)+
+      geom_tile(aes(x = 2, y = 1), fill = "#F5C46A", size = 1, alpha=0.8) +
+      geom_tile(aes(x = 3, y = 1), fill = "#F6A27C", size = 1, alpha=0.8) +
+      geom_text(aes(x = 1, y = 0.5, label = "Likely Achieve by 2030"), size=6, vjust = 1.1)+
+      geom_text(aes(x = 2, y = 0.5, label = str_wrap("Within 10% of target by 2030"), 15), size=6, vjust = 1.1)+
+      geom_text(aes(x = 3, y = 0.5, label = "Won't Achieve by 2030"), size=6, vjust = 1.1)+
       theme_void()+
       scale_y_continuous(limits = c(-1,2.5))
   })
   
-  output$data_sdgtable <- downloadHandler(
-    filename = function() {
-      paste("triplebillion_table_data", ".csv", sep = "")
-    },
-    content = function(file) {
-      write.csv(datatablesdg(), file, row.names = FALSE)
-    }
-  )
-  
-  output$jpeg_sdgtable <- downloadHandler(
-    filename = function() {
-      paste("triplebillion", ".png", sep = "")
-    },
-    content = function(file) {
-      save_as_image(tablesdg(), path = file, webshot = "webshot")
-    }
-  )
+  # output$data_sdgtable <- downloadHandler(
+  #   filename = function() {
+  #     paste("triplebillion_table_data", ".csv", sep = "")
+  #   },
+  #   content = function(file) {
+  #     write.csv(datatablesdg(), file, row.names = FALSE)
+  #   }
+  # )
+  # 
+  # output$jpeg_sdgtable <- downloadHandler(
+  #   filename = function() {
+  #     paste("triplebillion", ".png", sep = "")
+  #   },
+  #   content = function(file) {
+  #     save_as_image(tablesdg(), path = file, webshot = "webshot")
+  #   }
+  # )
   
   # output$pdf_sdgtable <- downloadHandler(
   #   filename = function() {
@@ -1714,38 +1817,38 @@ server = function(input, output, session) {
     
   })
   
-  output$data_TBcontrib <- downloadHandler(
-    filename = function() {
-      paste("TB_contributions", ".csv", sep = "")
-    },
-    content = function(file) {
-      write.csv(TBcontrib_data()$plt_dat, file, row.names = FALSE)
-    }
-  )
-  
-  output$jpeg_TBcontrib <- downloadHandler(
-    filename = function() {
-      paste("TB_contributions", ".jpeg", sep = "")
-    },
-    content = function(file) {
-      ggsave(
-        TBcontrib_data()$plt + 
-          labs(title = paste0(input$TB, " indicator contributions to the Triple Billions, ", input$iso3le, ", 2018-2030.")
-               ), filename = file, width = 15, height = 8, units = "in", dpi = 100)
-    }
-  )
-  
-  output$pdf_TBcontrib <- downloadHandler(
-    filename = function() {
-      paste("TB_contributions", ".pdf", sep = "")
-    },
-    content = function(file) {
-      ggsave(
-        TBcontrib_data()$plt + 
-          labs(title = paste0(input$TB, " indicator contributions to the Triple Billions, ", input$iso3le, ", 2018-2030.")
-               ), filename = file, width = 15, height = 8, units = "in")
-    }
-  )
+  # output$data_TBcontrib <- downloadHandler(
+  #   filename = function() {
+  #     paste("TB_contributions", ".csv", sep = "")
+  #   },
+  #   content = function(file) {
+  #     write.csv(TBcontrib_data()$plt_dat, file, row.names = FALSE)
+  #   }
+  # )
+  # 
+  # output$jpeg_TBcontrib <- downloadHandler(
+  #   filename = function() {
+  #     paste("TB_contributions", ".jpeg", sep = "")
+  #   },
+  #   content = function(file) {
+  #     ggsave(
+  #       TBcontrib_data()$plt + 
+  #         labs(title = paste0(input$TB, " indicator contributions to the Triple Billions, ", input$iso3le, ", 2018-2030.")
+  #              ), filename = file, width = 15, height = 8, units = "in", dpi = 100)
+  #   }
+  # )
+  # 
+  # output$pdf_TBcontrib <- downloadHandler(
+  #   filename = function() {
+  #     paste("TB_contributions", ".pdf", sep = "")
+  #   },
+  #   content = function(file) {
+  #     ggsave(
+  #       TBcontrib_data()$plt + 
+  #         labs(title = paste0(input$TB, " indicator contributions to the Triple Billions, ", input$iso3le, ", 2018-2030.")
+  #              ), filename = file, width = 15, height = 8, units = "in")
+  #   }
+  # )
   
   
   ## Generate report
@@ -1987,13 +2090,13 @@ server = function(input, output, session) {
         filter(iso3==j) %>% 
         select(-c(country, iso3)) %>% 
         remove_rownames %>%
-        column_to_rownames(var="DIM_AGEGROUP_CODE")
+        column_to_rownames(var="age")
       
       test00_ <- test00 %>% 
         filter(iso3==j) %>% 
         select(-c(country, iso3)) %>% 
         remove_rownames %>%
-        column_to_rownames(var="DIM_AGEGROUP_CODE")
+        column_to_rownames(var="age")
       
       dims <- dim(test21_)
       
@@ -2076,7 +2179,7 @@ server = function(input, output, session) {
       #   aes(label = paste0(year, ": ", value), y=value, x = country), hjust = -1
       # ) +
       coord_flip() +
-      ylab("Life expectancy")+xlab("")+
+      ylab("Life expectancy at birth (years)")+xlab("")+
       theme_classic()+
       theme(legend.position = "bottom",
             axis.text.x=element_text(size=18),
@@ -2128,7 +2231,7 @@ server = function(input, output, session) {
       distinct(country) %>%
       pull(country)
     
-    updateVirtualSelect("iso3graph", label = "Select countries, areaa or WHO regions:", choices = x, selected = x[1])
+    updateVirtualSelect("iso3graph", label = "Select countries, areas or WHO regions:", choices = x, selected = x[1])
   })
   
   observe({
@@ -2147,6 +2250,7 @@ server = function(input, output, session) {
     x <- annexdata3 %>%
       filter(name==input$indgraph & country %in% input$iso3graph) %>% 
       distinct(sex) %>% 
+      arrange(sex) %>% 
       pull()
     
     # Can use character(0) to remove all choices
@@ -2466,6 +2570,34 @@ server = function(input, output, session) {
       ncol = 2
       )
   })
+  
+  # output$codrankcomp_leg <- renderPlot({
+  #   lev1 <- cod19 %>%
+  #     filter(FLAG_LEVEL == 1) %>%
+  #     select(FLAG_CAUSEGROUP, lev1_name = DIM_GHECAUSE_TITLE) %>%
+  #     unique()
+  #   
+  #   data_arrow <- codrankdatacomp1() %>%
+  #     group_by(region) %>% 
+  #     mutate(prop_deaths = VAL_DEATHS_COUNT_NUMERIC / sum(VAL_DEATHS_COUNT_NUMERIC),
+  #            rank_deaths = rank(-prop_deaths, ties.method = "first")) %>%
+  #     filter(rank_deaths < 11) %>%
+  #     left_join(lev1, by = "FLAG_CAUSEGROUP")
+  #   
+  #   data_arrow$lev1_name <- factor(data_arrow$lev1_name, levels = lev1_causes)
+  #   
+  #   leg_ <- ggplot(data_arrow, aes(x=1, y=-rank_deaths)) +
+  #     geom_label(aes(label = paste0(rep(" ", 57), collapse = ""), fill = lev1_name), hjust=0.5, alpha=0.3, size=7, show.legend = T) +
+  #     geom_label(aes(label = paste0(rank_deaths, ". ", DIM_GHECAUSE_TITLE), fill = lev1_name), hjust=0.5, alpha=0, size=7, label.size = NA, show.legend = F) +
+  #     scale_fill_manual(values = c("#F26829", "#009ADE", "#80BC00"))+
+  #     theme_void() +
+  #     labs(color = "", fill = "") +
+  #     # scale_x_continuous(limits=c(0.95, 1.18)) +
+  #     theme(plot.margin =  margin(0, 0, 0, 0, "cm")) 
+  #   
+  #   legend_ <- cowplot::get_legend(leg_)
+  #   plot(legend_)
+  # })
   
   output$codrankcomp1 <- renderPlot({ codrankcomp1_graph() })
   
@@ -3339,6 +3471,571 @@ server = function(input, output, session) {
   
   
   #################################################################################################################
+  
+  #################################################################################################################
+  
+  # Map of MMR 
+  output$mmrmap <- renderPlot({
+    
+    mmr_2020_afr <- data_mmr %>% 
+      filter(IndicatorCode == "MDG_0000000026" &
+               Period==2020) %>% 
+      select(ISO_3_CODE = SpatialDimValueCode, Value = FactValueNumeric, ParentLocationCode, Location)
+    
+    poly_data_afr <- poly %>% 
+      mutate(region = stringr::str_remove(WHO_REGION, "O$")) %>% 
+      filter(region=="AFR") %>%
+      left_join(mmr_2020_afr, by = "ISO_3_CODE")
+    
+    ggplot() +
+      geom_sf(data = poly_data_afr, aes(fill = Value), color = "black") +
+      theme_void() +
+      labs(fill = "") +
+      scale_fill_distiller(palette = "RdYlBu",
+                           limits = c(0,1200), 
+                           breaks = c(70, 300, 600, 900, 1200),
+                           name="",
+                           na.value = "grey50",
+                           direction = -1)+
+      theme(
+        legend.position = "top",
+        legend.text = element_text(size = 18),
+        legend.key.size = unit(1.5, "cm")
+      )
+    
+  })
+  
+  # Map of time to reach MMR target
+  output$mmrtarget <- renderPlot({
+    
+    mmr_roc <- data_mmr %>% 
+      filter(IndicatorCode == "MDG_0000000026") %>% 
+      filter(Period==2000 | Period==2020) %>% 
+      select(year = Period, iso3= SpatialDimValueCode, country = Location, mmr = FactValueNumeric) %>% 
+      arrange(year) %>% 
+      pivot_wider(names_from = year, values_from = mmr) %>% 
+      mutate(roc = (log(`2020`/`2000`)) / 20) %>% 
+      mutate(n_years = (log(70/`2020`)) / roc) %>% 
+      mutate(n_years = ifelse(`2020`<70, 0, n_years)) %>%
+      mutate(n_years_limit = ifelse(roc<0 & n_years>100, 100, n_years)) %>%
+      mutate(roc_pos = ifelse(roc>0, TRUE, FALSE))
+    
+    mmr_years <- poly %>% 
+      mutate(region = stringr::str_remove(WHO_REGION, "O$")) %>% 
+      filter(region=="AFR") %>%
+      left_join(
+        mmr_roc %>% select(iso3, country, roc, `2000`, `2020`, n_years, n_years_limit, roc_pos),
+        by = c("ISO_3_CODE" = "iso3")) 
+    
+    ggplot() +
+      geom_sf(data = mmr_years , 
+              aes(fill=n_years_limit), color = "black") +
+      scale_fill_distiller(palette = "RdYlBu",
+                           limits = c(0,100), 
+                           breaks = c(0, 25, 50, 75, 100), 
+                           labels = c("0", "25", "50", "75", ">=100"),
+                           name="",
+                           na.value = "grey50",
+                           direction = -1)+
+      new_scale("fill") +
+      geom_sf(data = mmr_years %>% filter(roc_pos==TRUE),
+              aes(fill= roc_pos), color = "black", show.legend = TRUE) +
+      scale_fill_manual(values = "grey50", labels = c(str_wrap("Countries with increasing MMR, 2000-2020", 20)), name=" ")+
+      theme_void() +
+      theme(
+        legend.position = "top",
+        legend.text = element_text(size = 18),
+        legend.key.size = unit(1.5, "cm")
+      )
+  })
+  
+  # Annualized rate of Change
+  output$aroc <- renderHighchart({
+    
+    mmr_rate <- data_mmr %>% 
+      filter(IndicatorCode == "MDG_0000000026" &
+               Period>=2000 &
+               Location %in% input$iso3aroc) %>% 
+      select(year = Period, iso3= SpatialDimValueCode, country = Location, mmr = FactValueNumeric) %>% 
+      arrange(year)
+    
+    countries <- unique(mmr_rate$iso3)
+    
+    mmr_rate2000 <- mmr_rate %>% 
+      filter(year==2000 | year==2015) %>% 
+      pivot_wider(names_from = year, values_from = mmr) %>% 
+      mutate(roc = (log(`2015`/`2000`)) / 15)%>% 
+      select(iso3, country, `2000-2015` =roc) 
+    
+    mmr_rate2020 <- mmr_rate %>% 
+      filter(year==2016 | year==2020) %>% 
+      pivot_wider(names_from = year, values_from = mmr) %>% 
+      mutate(roc = (log(`2020`/`2016`)) / 5) %>% 
+      select(iso3, country, `2016-2020` = roc) 
+    
+    mmr2020 <- mmr_rate %>% 
+      filter(year==2020)
+    
+    # Maternal conditions
+    mc <- cod19 %>% 
+      filter(DIM_COUNTRY_CODE %in% countries &
+               DIM_AGEGROUP_CODE=="TOTAL" &
+               sex=="Both sexes") %>% 
+      filter(DIM_GHECAUSE_CODE==0 | DIM_GHECAUSE_CODE==420) %>% 
+      select(iso3 = DIM_COUNTRY_CODE, deaths = VAL_DEATHS_COUNT_NUMERIC, DIM_GHECAUSE_TITLE) %>% 
+      pivot_wider(names_from = DIM_GHECAUSE_TITLE, values_from = deaths) %>% 
+      mutate(percent_mc = (`Maternal conditions`/`All Causes`)*100) %>% 
+      mutate(group_mc = case_when(percent_mc<1 ~ "<1%",
+                                  percent_mc>=1 & percent_mc<=2 ~ "1-2%",
+                                  percent_mc>2 ~ ">2%"))
+    
+    df <- mc %>% 
+      left_join(mmr_rate2000) %>% 
+      left_join(mmr_rate2020) %>% 
+      left_join(mmr2020) %>% 
+      mutate(`2000-2015` = round(`2000-2015`, 3),
+             `2016-2020` = round(`2016-2020`, 3))
+    
+    df$group_mc <- factor(df$group_mc, levels = c("<1%", "1-2%", ">2%"))
+    
+    
+    df %>% 
+      hchart('scatter', hcaes(x = `2000-2015`, y = `2016-2020`, size = mmr, group = group_mc), 
+             maxSize = "10%", color = c("#80BC00", "#009ADE","#EF3842"),
+             dataLabels = list(
+               enabled = TRUE,
+               format = '{point.country}',
+               # format = '<span style="color: ' + point.color + '">' + point.name + ': ' + point.y + '%</span>',
+               color = '{this.point.color}',
+               style = list(
+                 textShadow=F,
+                 fontSize = "14px"
+               )
+             )) %>% 
+      hc_xAxis(title = list(text = "Annualized rate of change, MMR, 2000-2015"),
+               min = -0.152, max = 0.03,
+               plotLines = list(
+                 list(color = "#252525",
+                      width = 1,
+                      value = 0)
+               )) %>%
+      hc_yAxis(title = list(text= "Annualized rate of change, MMR, 2016-2020"),
+               min = -0.105, max = 0.105,
+               plotLines = list(
+                 list(color = "#252525",
+                      width = 1,
+                      value = 0)
+               ))  %>% 
+      # hc_plotOptions(
+      #   scatter = list(showInLegend = TRUE)
+      # ) %>% 
+      hc_annotations(
+        list(
+          labels = list(
+            list(point = list(x = -0.145, y = 0.11, xAxis = 0, yAxis = 0), text = "Increasing MMR", shape = "square", style = list(fontSize ="12px")),
+            list(point = list(x = -0.145, y = -0.12, xAxis = 0, yAxis = 0), text = "Decreasing MMR", shape = "square", style = list(fontSize ="12px")),
+            list(point = list(x = 0.02, y = -0.12, xAxis = 0, yAxis = 0), text = "Increasing MMR", shape = "square", style = list(fontSize ="12px"))
+          ),
+          draggable = ''
+        )
+      ) %>%
+      hc_legend(title = list(text = "Deaths due to maternal conditions, 2021", style = list(fontSize = "14px")),
+                symbolWidth = 70,
+                symbolHeight = 25,
+                itemStyle = list(fontSize = "14px", color = "black")
+      ) %>% 
+      # hc_legend(
+      #   # maxHeight=100,
+      #   # width = "100%",
+      #   # itemWidth= 100
+      #   symbolWidth = 300,
+      #   symbolHeight = 25
+      #   # itemStyle = list(fontSize = "1.0em")
+      # ) %>%
+      hc_tooltip(crosshairs = F, shared = F, useHTML=T,
+                 formatter= JS(
+                   paste0('function() {
+                  return this.point.country +
+                  "</b><br/>MMR, 2020: " + this.point.mmr +
+                  "</b><br/>MMR AROC, 2000-2015: " + this.point.x + 
+                  "</b><br/>MMR AROC, 2016-2020: " + this.point.y +
+                  "</b><br/>Deaths due to maternal conditions, 2021: " + this.point.group_mc
+                          }'
+                   )
+                 )) %>% 
+      hc_plotOptions(enableMouseTracking = T) %>% 
+      hc_chart(backgroundColor = "white") %>% 
+      hc_exporting(enabled = TRUE, sourceWidth=1000, sourceHeight=700,
+                   buttons=list(contextButton=list(menuItems=c("downloadJPEG","downloadPDF", "downloadCSV"))))
+    
+  }) 
+  
+  
+  # Benchmark Bar graph
+  output$benchbar <- renderPlot({
+    
+    mmr_region_ <- mmr_region %>% 
+      filter(Year==2020) %>% 
+      mutate(mmr = as.numeric(str_extract(Maternal.mortality.ratio..per.100.000.live.births., "^[:digit:]+"))) %>% 
+      select(WHO.region, Year, mmr) 
+    
+    mmr_ <- data_mmr %>% 
+      filter(IndicatorCode == "MDG_0000000026" &
+               Location==input$iso3cp & 
+               Period==2020) %>% 
+      select(Year = Period, WHO.region = Location, mmr = FactValueNumeric) 
+    
+    mmr_top_reg_ <- data_mmr %>% 
+      filter(IndicatorCode == "MDG_0000000026" &
+               Period==2020) %>% 
+      arrange(Period, -FactValueNumeric) %>% 
+      group_by(Period) %>% filter(row_number()==1) %>% ungroup()%>% 
+      select(Year = Period, mmr = FactValueNumeric, WHO.region = Location)
+    
+    mmr_low_reg_ <- data_mmr %>% 
+      filter(IndicatorCode == "MDG_0000000026" &
+               Period==2020) %>% 
+      arrange(Period, FactValueNumeric) %>% 
+      group_by(Period) %>% filter(row_number()==1) %>% ungroup() %>% 
+      select(Year = Period, mmr = FactValueNumeric, WHO.region = Location)
+    
+    country_low <- mmr_low_reg_ %>% pull(WHO.region)
+    country_high <- mmr_top_reg_ %>% pull(WHO.region)
+    iso3_low <- data_mmr %>% filter(Location==country_low) %>% distinct(SpatialDimValueCode) %>% pull(SpatialDimValueCode)
+    iso3_high <- data_mmr %>% filter(Location==country_high) %>% distinct(SpatialDimValueCode) %>% pull(SpatialDimValueCode)
+    
+    test <- rbind(mmr_, mmr_region_, mmr_low_reg_, mmr_top_reg_) 
+    
+    mmr_region_2000 <- mmr_region %>% 
+      filter(Year==2000) %>% 
+      mutate(mmr = as.numeric(str_extract(Maternal.mortality.ratio..per.100.000.live.births., "^[:digit:]+"))) %>% 
+      select(WHO.region, Year, mmr) 
+    
+    mmr_2000 <- data_mmr %>% 
+      filter(IndicatorCode == "MDG_0000000026" & Period==2000 &
+               Location %in% c(input$iso3cp, country_low, country_high)
+      ) %>% 
+      select(Year = Period, WHO.region = Location, mmr = FactValueNumeric)   
+    
+    
+    test3 <- rbind(test, mmr_2000, mmr_region_2000) %>% 
+      arrange(Year, WHO.region) %>%
+      mutate(rank = case_when(WHO.region== country_low ~ paste0(country_low, " (region lowest)"),
+                              WHO.region== country_high ~ paste0(country_high, " (region highest)"))) %>%
+      mutate(country = coalesce(rank, WHO.region)) %>% 
+      arrange(country)
+    
+    country_low_ <- test3 %>% distinct(WHO.region,country) %>% filter(WHO.region==country_low) %>% pull(country)
+    country_high_ <- test3 %>% distinct(WHO.region,country) %>% filter(WHO.region==country_high) %>% pull(country)
+    
+    test3$country <- factor(test3$country, levels = c(input$iso3cp, "Africa", "Global", country_low_, country_high_))
+    
+    test3 <- test3 %>% 
+      mutate(mmr_ = round(mmr, digits = 0)) %>% 
+      rename(mmr = mmr_, mmr_prev = mmr)
+    diff <- test3 %>%
+      select(Year, country, mmr) %>%
+      pivot_wider(names_from = Year, values_from = mmr) %>%
+      mutate(mmr = `2000` - `2020`,
+             Year = 2000) %>%
+      select(Year, country, mmr)
+    
+    test4 <- rbind(test3 %>% filter(Year==2020) %>% select(country, Year, mmr), diff)
+    
+    plot <- ggplot() +
+      # geom_bar(data = test4, aes(x=country, y=mmr, color = country, fill = country), stat="identity", position = "stack", width = 0.5, alpha = 0, show.legend = FALSE, size = 1)+
+      geom_bar(data = test3 %>% filter(Year==2000), aes(x=country, y=mmr, fill = country, color = country), stat="identity", width = 0.5, alpha=0.4, show.legend = FALSE) +
+      geom_bar(data = test3 %>% filter(Year==2020), aes(x=country, y=mmr, fill = country, color = country), stat="identity", width = 0.5, alpha=0.7, show.legend = FALSE) +
+      geom_point(data = test3 %>% distinct(country) %>% mutate(target=70), aes(x=country, y = target), shape = 108, size = 9, color = "#00205C")+
+      geom_text(data = test3 %>% filter(Year==2020), aes(x=country, y=mmr, label = mmr), hjust = 1.3, fontface = "bold", size = 7)+
+      geom_text(data = test3 %>% filter(Year==2000), aes(x=country, y=mmr, label = mmr), hjust = -0.8, size = 7)+
+      coord_flip()+
+      theme_classic() +
+      theme(
+        legend.position = "bottom",
+        text = element_text(size = 22),
+        axis.title.x = element_text(size=22, margin = margin(t = 15, r = 0, b = 0, l = 0), color = "black"),
+        axis.title.y = element_text(size=22, color = "black"),
+        axis.text.x = element_text(size=22, color = "black"),
+        axis.text.y = element_text(size=22, color = "black"),
+        plot.margin = margin(0, 0, 0, 50)
+      ) +
+      ylab("Maternal Mortality Ratio (per 100,000 live births)")+ 
+      xlab("")+
+      scale_x_discrete(limits=rev)+
+      scale_y_continuous(breaks = c(0, 70, 500, 1000, 1500), limits = c(0, 1800))+
+      scale_fill_manual(values = c("#F4A81D", "#80BC00", "#A6228C", "#009ADE", "#F26829")) +
+      scale_color_manual(values = c("#F4A81D", "#80BC00", "#A6228C", "#009ADE", "#F26829")) 
+    
+    
+    leg <- ggplot() +
+      geom_tile(aes(x = 1, y = 1), fill = "#EF7C47")+
+      geom_tile(aes(x = 4.4, y = 1), fill = "#EFA685", color = "#EF7C47", size = 6)+
+      geom_text(aes(x = 2.6, y = 1, label = "MMR in 2020"), fontface = "bold", size=6)+
+      geom_text(aes(x = 7.2, y = 1, label = "Change in MMR, 2000-2020"), size=6)+
+      
+      geom_tile(aes(x = 9.5, y = 1, width = 0.1), fill = "#00205C")+
+      geom_text(aes(x = 11.1, y = 1, label = "SDG target on MMR"), size=6)+
+      
+      theme_void()+
+      scale_x_continuous(limits = c(0, 13.5))
+    
+    ggdraw() +
+      draw_plot(plot, 0, 0.1, 1, 0.9) +
+      draw_plot(leg, 0.25, 0.02, 0.6, 0.07)
+  }) %>% bindCache(input$iso3cp)
+  
+  
+  # Trajectories
+  output$mmrtraj <- renderPlot({
+    
+    mmr_region_ <- mmr_region %>% 
+      mutate(mmr = as.numeric(str_extract(Maternal.mortality.ratio..per.100.000.live.births., "^[:digit:]+"))) %>% 
+      select(year = Year, WHO.region, mmr) %>% 
+      filter(year>=2000)
+    
+    roc_region <- mmr_region_ %>% 
+      filter(year==2000 | year==2020) %>% 
+      arrange(year) %>% 
+      pivot_wider(names_from = year, values_from = mmr) %>% 
+      mutate(roc = (log(`2020`/`2000`)) / 20) %>% 
+      mutate(n_years = (log(70/`2020`)) / roc) %>%
+      mutate(`2021` = (exp(roc*1))*`2020`,
+             `2022` = (exp(roc*2))*`2020`,
+             `2023` = (exp(roc*3))*`2020`,
+             `2024` = (exp(roc*4))*`2020`,
+             `2025` = (exp(roc*5))*`2020`,
+             `2026` = (exp(roc*6))*`2020`,
+             `2027` = (exp(roc*7))*`2020`,
+             `2028` = (exp(roc*8))*`2020`,
+             `2029` = (exp(roc*9))*`2020`,
+             `2030` = (exp(roc*10))*`2020`) %>% 
+      pivot_longer(cols = c(`2021`, `2022`, `2023`, `2024`, `2025`, `2026`,`2027`, `2028`, `2029`, `2030`), names_to = "year", values_to = "mmr") %>% 
+      mutate(mmr = round(mmr, digits = 0)) %>% 
+      select(WHO.region, year, mmr)
+    
+    mmr_region__ <- rbind(mmr_region_, roc_region) %>% 
+      mutate(year = as.numeric(year)) %>% 
+      rbind()
+    
+    final <- final_ %>% 
+      filter(country==input$iso3cp) %>% 
+      distinct() %>% 
+      mutate(text_ = str_extract(scenario, "(?<=\\().+")) %>% 
+      mutate(text = ifelse(str_detect(text_, "percentile"), 
+                           paste0(round(mmr, digits = 0), " (Best ", text_),
+                           paste0(round(mmr, digits = 0), " (", text_))) %>% 
+      filter(text_!="60th percentile)" & text_!="70th percentile)" & text_!="80th percentile)") %>% 
+      mutate(country_name = country)
+    
+    final_other <- final_ %>% 
+      filter(country %in% input$iso3traj) %>%
+      filter(str_detect(scenario, "Current rate of change")) %>% 
+      select(year, mmr, WHO.region=country)
+    
+    max <- final %>% filter(str_detect(scenario, "Current")) %>% arrange(desc(mmr)) %>% filter(row_number()==1)
+    max <- plyr::round_any(max$mmr, 10, f = ceiling)
+    
+    max <- ifelse(max<800, 800, max)
+    
+    colors <- c(
+      "Current rate of change)" = "black",
+      "Fastest rate of change in region)" = "#80BC00",
+      "90th percentile)" = "#009ADE",
+      "50th percentile)" = "#EF3842"
+    )
+    
+    ggplot()+
+      geom_line(data = mmr_region__, aes(x=year, y=mmr, group=WHO.region, linetype=WHO.region), show.legend = FALSE)+
+      geom_line(data = final_other, aes(x=year, y=mmr, group=WHO.region), show.legend = FALSE)+
+      geom_line(data = final, aes(x=year, y=mmr, group =text_, color = text_), show.legend = FALSE)+
+      geom_text(data = final %>% filter(year==2030), 
+                aes(x=year, y = mmr, color = text_, label= str_wrap(text, 28)), 
+                show.legend = FALSE, size = 5.5, hjust = -0.05)+
+      geom_text(data = mmr_region__ %>% filter(year==2001), 
+                aes(x=year, y = mmr, label= WHO.region), 
+                show.legend = FALSE, size = 5.5, vjust = 1.5)+
+      geom_text(data = final_other %>% filter(year==2001), 
+                aes(x=year, y = mmr, label= WHO.region), 
+                show.legend = FALSE, size = 5.5, vjust = 1.5)+
+      geom_text(data = final %>% filter(year==2001),
+                aes(x=year, y = mmr, label=str_wrap(country_name, 10)),
+                show.legend = FALSE, size = 5.5, vjust = 1.5)+
+      geom_hline(yintercept = 70, color="#A6228C")+
+      geom_label(aes(x=2005,y=70,label = as.character("SDG target: 70 per 100,000 live births")), show.legend = FALSE, 
+                 size = 5.5, vjust = -0.1, family = "calibri", label.size = NA, color="#A6228C")+
+      theme_classic()+
+      theme(
+        text = element_text(size = 14),
+        axis.title.x = element_text(size=16, margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        axis.title.y = element_text(size=16, margin = margin(t = 0, r = 10, b = 0, l = 0)),
+        axis.text.x = element_text(size=12),
+        axis.text.y = element_text(size=12),
+        legend.text = element_text(size = 12),
+        plot.margin = margin(1,0,0.5,1, "cm")
+        # legend.position = "bottom",
+        # legend.margin=margin(t = 0, b=0, unit='cm')
+      )+
+      ylab("Maternal Mortality Ratio (per 100,000 live births)") +
+      xlab("Year")+
+      scale_color_manual(values = colors)+
+      scale_linetype_manual(values = c("Global" = "dashed", "Africa" = "twodash"))+
+      scale_y_continuous(expand = c(0,0), limits = c(0, max))+
+      scale_x_continuous(limits = c(2000, 2037), labels = c(2000, 2010, 2020, 2030), breaks = c(2000, 2010, 2020, 2030))
+    
+  }) 
+  # %>% bindCache(input$iso3cp)
+  
+  output$mmrtraj2 <- renderHighchart({
+    
+    final <- final_ %>% 
+      filter(country==input$iso3cp) %>% 
+      distinct() %>% 
+      mutate(text_ = str_extract(scenario, "(?<=\\().+")) %>% 
+      mutate(text = ifelse(str_detect(text_, "percentile"), 
+                           paste0(round(mmr, digits = 0), " (Best ", text_),
+                           paste0(round(mmr, digits = 0), " (", text_))) %>% 
+      filter(text_!="60th percentile)" & text_!="70th percentile)" & text_!="80th percentile)") %>% 
+      mutate(country_name = country)
+    
+    mmr_region__ %>% 
+      rbind(final %>% filter(text_ == "Current rate of change)") %>% 
+              select(year, mmr, WHO.region = country)) %>% 
+      arrange(WHO.region, year) %>% 
+      hchart('line', hcaes(x = year, y = mmr, group = WHO.region)
+      ) %>% 
+      hc_add_series(final %>% filter(text_=="90th percentile)"), 
+                    type = "line", 
+                    hcaes(x = year, y = mmr), name = paste(input$iso3cp, "trajectory using best 90th percentile"), color = "green") %>%
+      hc_add_series(final %>% filter(text_=="50th percentile)"), 
+                    type = "line", 
+                    hcaes(x = year, y = mmr), name = paste(input$iso3cp, "trajectory using best 50th percentile"), color = "orange") %>%
+      hc_xAxis(title = list(text = ""),
+               plotLines = list(
+                 list(color = "#252525",
+                      width = 1,
+                      value = 2020)
+               )) %>%
+      hc_yAxis(title = list(text= "Maternal Mortality Ratio (per 100,000 live births)"),
+               min = 0,
+               plotLines = list(
+                 list(color = "#A6228C",
+                      width = 2,
+                      value = 70)
+               )) %>%    
+      hc_annotations(
+        list(
+          labels = list(
+            list(point = list(x = 2020, y = 800, xAxis = 0, yAxis = 0), text = "Trajectories begin at 2020", shape = "square", style = list(fontSize ="14px")),
+            list(point = list(x = 2001, y = 70, xAxis = 0, yAxis = 0), text = "SDG target: 70 per 100,000 live births", shape = "square", 
+                 style = list(fontSize ="14px", color = "black"), backgroundColor = "white", borderColor = "#A6228C")
+          ),
+          draggable = ''
+        )
+      ) %>% 
+      hc_title(text="") %>%
+      hc_tooltip(crosshairs = F, shared = F, useHTML=T) %>% 
+      hc_plotOptions(enableMouseTracking = T) %>% 
+      hc_chart(backgroundColor = "white") %>% 
+      hc_exporting(enabled = TRUE, sourceWidth=1000, sourceHeight=700,
+                   buttons=list(contextButton=list(menuItems=c("downloadJPEG","downloadPDF", "downloadCSV")))) 
+    
+  })
+  
+  
+  # RMNCH
+  output$rmnch <- renderHighchart({
+    
+    data = rmnch_est %>% filter(indicator=="rmnch") %>% filter(country==input$iso3cp) %>% mutate(median = round(median, 1))
+    fill_var = "median"
+    subtitle_name = "Median Percentage (%)"
+    low_color = "#EF3842" 
+    high_color = "#009ADE"
+    
+    max <- plyr::round_any(max(data[[fill_var]]), 10, f = ceiling)
+    min <- plyr::round_any(min(data[[fill_var]]), 10, f = floor)
+    
+    map <- paste0("map", data %>% distinct(iso3) %>% pull())
+    
+    highchart() %>%
+      hc_chart(backgroundColor = "white") %>% 
+      hc_add_series_map(get(map), data , value = "median", joinBy = "region_", name = "Median Percentage (%)",
+                        dataLabels = list(
+                          enabled = TRUE,
+                          format = "{point.region_:}",
+                          style = list(
+                            textShadow=F,
+                            fontSize = "16px"
+                          )
+                        )) %>% 
+      hc_colorAxis(
+        minColor = low_color,
+        maxColor = high_color,
+        max = max,
+        min = min,
+        labels = list(style = list(fontSize = "16px", color = "black"))
+        # width= '50%',
+        # height= 100
+      ) %>%
+      hc_legend(
+        # maxHeight=100,
+        # width = "100%",
+        # itemWidth= 100
+        symbolWidth = 300,
+        symbolHeight = 25
+        # itemStyle = list(fontSize = "1.0em")
+      ) %>% 
+      hc_exporting(enabled = TRUE, sourceWidth=1200, sourceHeight=600,
+                   buttons=list(contextButton=list(menuItems=c("downloadJPEG","downloadPDF", "downloadCSV")))) %>%
+      # hc_subtitle(text = subtitle_name) %>%
+      hc_mapNavigation(enabled = TRUE) %>%
+      hc_tooltip(crosshairs = F, shared = F,
+                 formatter= JS(
+                   paste0('function() {
+                   return this.point.region_ + "</b><br/>Coverage of RMNCH: " + this.point.value + "%"
+                       }'
+                   )
+                 )
+      )
+    
+    
+  }) %>% bindCache(input$iso3cp)
+  
+  
+  # Generate report
+  reactive_filename_mmr <- reactive({
+    paste0("mmr-country-report-", input$iso3cp, ".pdf")
+  })
+  
+  reactive_country_name <- reactive({
+    paste0(input$iso3cp)
+  })
+  
+  output$download_button_mmr <- downloadHandler(
+    
+    filename = function() {
+      reactive_filename_mmr()
+    },
+    content = function(file) {
+      params <- list(
+        country_name = reactive_country_name(),
+        country_iso = country_table %>% filter(Title == input$iso3cp) %>% pull(Code)
+      )
+      
+      id <- showNotification(
+        "Rendering pdf...", 
+        duration = NULL, 
+        closeButton = FALSE
+      )
+      on.exit(removeNotification(id), add = TRUE)
+      
+      rmarkdown::render("country-report_mh_v3.Rmd", 
+                        output_file = file,
+                        params = params,
+                        envir = new.env(parent = globalenv())
+      )
+    }
+  )
   
 }
 

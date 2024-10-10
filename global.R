@@ -32,6 +32,7 @@ library(DemoDecomp)
 library(ggbump)
 library(openxlsx)
 library(patchwork)
+library(ggnewscale)
 # library(webshot)
 #library(gt)
 
@@ -190,7 +191,7 @@ yeartab <- annexdata3 %>% distinct(year) %>% arrange(desc(year)) %>% pull()
 # Global
 globalheat <- cod19 %>%
   filter(FLAG_LEVEL == 2) %>%
-  filter(age==101) %>% 
+  filter(DIM_AGEGROUP_CODE=="TOTAL") %>% 
   mutate(country = "Global") %>%
   select(country, sex, DIM_GHECAUSE_TITLE, VAL_DEATHS_COUNT_NUMERIC) %>% 
   group_by(country, sex, DIM_GHECAUSE_TITLE) %>% 
@@ -199,7 +200,7 @@ globalheat <- cod19 %>%
   left_join(
     cod19 %>%
       filter(FLAG_LEVEL == 2) %>%
-      filter(age==101) %>% 
+      filter(DIM_AGEGROUP_CODE=="TOTAL") %>% 
       mutate(country = "Global") %>% 
       group_by(country, sex) %>% 
       summarise(total_deaths = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
@@ -215,7 +216,7 @@ globalheat <- cod19 %>%
 # Region
 regionheat <- cod19 %>%
   filter(FLAG_LEVEL == 2) %>%
-  filter(age==101) %>% 
+  filter(DIM_AGEGROUP_CODE=="TOTAL") %>% 
   select(country = region2, sex, DIM_GHECAUSE_TITLE, VAL_DEATHS_COUNT_NUMERIC) %>% 
   group_by(country, sex, DIM_GHECAUSE_TITLE) %>% 
   summarise(deaths = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
@@ -223,7 +224,7 @@ regionheat <- cod19 %>%
   left_join(
     cod19 %>%
       filter(FLAG_LEVEL == 2) %>%
-      filter(age==101) %>% 
+      filter(DIM_AGEGROUP_CODE=="TOTAL") %>% 
       select(country = region2, sex, DIM_GHECAUSE_TITLE, VAL_DEATHS_COUNT_NUMERIC) %>% 
       group_by(country, sex) %>% 
       summarise(total_deaths = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
@@ -239,7 +240,7 @@ regionheat <- cod19 %>%
 # Country
 countryheat <- cod19 %>%
   filter(FLAG_LEVEL == 2) %>%
-  filter(age==101) %>% 
+  filter(DIM_AGEGROUP_CODE=="TOTAL") %>% 
   group_by(country, sex) %>%
   mutate(prop_deaths = VAL_DEATHS_COUNT_NUMERIC / sum(VAL_DEATHS_COUNT_NUMERIC),
          rank = rank(-prop_deaths, ties.method = "first")) %>%
@@ -281,13 +282,14 @@ rm(globalheat, regionheat, countryheat)
 
 countryheatv2_2021 <- cod19 %>%
   filter(FLAG_LEVEL %in% c(1,2,3)) %>%
-  filter(DIM_AGEGROUP_CODE==101) %>% 
+  filter(DIM_AGEGROUP_CODE=="TOTAL") %>% 
   select(country, sex, FLAG_LEVEL, DIM_GHECAUSE_TITLE, deaths=VAL_DEATHS_COUNT_NUMERIC, pop=ATTR_POPULATION_NUMERIC) %>% 
   mutate(mort_rate = round((deaths/pop)*100000, 1),
          year = 2021)
 
 countryheatv2_2000 <- cod00 %>%
   filter(FLAG_LEVEL %in% c(1,2,3)) %>%
+  filter(DIM_AGEGROUP_CODE=="TOTAL") %>% 
   select(country, sex, FLAG_LEVEL, DIM_GHECAUSE_TITLE, deaths=VAL_DEATHS_COUNT_NUMERIC, pop=ATTR_POPULATION_NUMERIC) %>% 
   mutate(mort_rate = round((deaths/pop)*100000, 1),
          year = 2000)
@@ -370,6 +372,86 @@ all_plt_dat <- arrow::read_parquet("input/2024-03-26-10-06_summary.parquet") %>%
   ) 
 
 
+## Maternal Mortality
+
+rmnch_est <- read_sf("input/rmnch/map_estimates_rmnch_all_scaled_update.shp") %>% 
+  st_drop_geometry() %>% 
+  # filter(iso3==country_iso) %>% 
+  mutate(region_ = str_to_title(region)) %>% 
+  mutate(width = round(upper - lower, digits = 1)) %>% 
+  mutate(country =iso3_to_names(iso3)) %>% 
+  filter(country %in% c("Benin", "Burkina Faso", "Central African Republic", "Democratic Republic of the Congo", 
+                        "Guinea-Bissau", "Nigeria", "Rwanda", "Senegal", "Sierra Leone", "South Africa", "United Republic of Tanzania", "Zambia"))
+
+# test <- rmnch_est %>% filter(iso3=="NGA")
+# exportJson <- rjson::toJSON(test)
+# county_json <- geojsonio::geojson_json(test)
+# write(county_json, "input/rmnch/map_NGA.json")
+
+for(i in c("BEN", "BFA", "CAF", "COD", "GNB", "RWA", "SEN", "SLE", "TZA", "ZMB", "NGA", "ZAF")){ ## SA & Nigeria doesn't have a map yet
+  
+  assign(paste0("map", i), rjson::fromJSON(file=paste0("input/rmnch/map_", i, ".json")))
+  
+}
+
+data_mmr <- read.csv("input/mmr.csv") %>% filter(ParentLocationCode=="AFR")
+
+mmr_region <- read.csv("input/mmr_region.csv") %>% filter(Region.code %in% c("Global", "AFR"))
+
+final_ <- read.csv("input/mmr_forecast.csv") %>% mutate(country =iso3_to_names(iso3))
+
+iso3sdg_ <- filtered_indicator_values %>% filter(aggregation_level == "iso3") %>% distinct(country) %>% pull()
+indsdg_ <- filtered_indicator_values %>% arrange(indicator_name) %>% distinct(indicator_name) %>% pull()
+sdg_sort <- filtered_indicator_values %>% distinct(indicator_name, small_is_best, units) %>% 
+  mutate(small_is_best = ifelse(
+    is.na(small_is_best),
+    case_when(
+      indicator_name=="Average Service Coverage" ~ FALSE,
+      indicator_name=="UHC Single Measure" ~ FALSE,
+      indicator_name=="Prevent" ~ FALSE
+    ),
+    small_is_best
+  ))
+
+iso3le <- c("Global", "African Region", 
+            "Benin", "Burkina Faso", "Central African Republic", "Democratic Republic of the Congo", 
+            "Guinea-Bissau", "Nigeria", "Rwanda", "Senegal", "Sierra Leone", "South Africa", "United Republic of Tanzania", "Zambia")
+
+iso3afr <- data %>% filter(region_name=="African Region") %>% arrange(country) %>% distinct(country) %>% pull()
+iso3afr_mmr <- data_mmr %>% filter(IndicatorCode == "MDG_0000000026" & Period>=2000) %>% distinct(Location) %>% arrange(Location) %>% pull()
+
+poly_filepath = "input/shapefiles/MapTemplate_generalized_2013/Shapefiles/"
+poly <- st_read(dsn = poly_filepath, layer = "general_2013")
+poly_mask <- st_read(dsn = poly_filepath, layer = "maskpoly_general_2013")
+poly_line <- st_read(dsn = poly_filepath, layer = "maskline_general_2013")
 
 
+mmr_region_ <- mmr_region %>% 
+  mutate(mmr = as.numeric(str_extract(Maternal.mortality.ratio..per.100.000.live.births., "^[:digit:]+"))) %>% 
+  select(year = Year, WHO.region, mmr) %>% 
+  filter(year>=2000)
+
+roc_region <- mmr_region_ %>% 
+  filter(year==2000 | year==2020) %>% 
+  arrange(year) %>% 
+  pivot_wider(names_from = year, values_from = mmr) %>% 
+  mutate(roc = (log(`2020`/`2000`)) / 20) %>% 
+  mutate(n_years = (log(70/`2020`)) / roc) %>%
+  mutate(`2021` = (exp(roc*1))*`2020`,
+         `2022` = (exp(roc*2))*`2020`,
+         `2023` = (exp(roc*3))*`2020`,
+         `2024` = (exp(roc*4))*`2020`,
+         `2025` = (exp(roc*5))*`2020`,
+         `2026` = (exp(roc*6))*`2020`,
+         `2027` = (exp(roc*7))*`2020`,
+         `2028` = (exp(roc*8))*`2020`,
+         `2029` = (exp(roc*9))*`2020`,
+         `2030` = (exp(roc*10))*`2020`) %>% 
+  pivot_longer(cols = c(`2021`, `2022`, `2023`, `2024`, `2025`, `2026`,`2027`, `2028`, `2029`, `2030`), names_to = "year", values_to = "mmr") %>% 
+  mutate(mmr = round(mmr, digits = 0)) %>% 
+  select(WHO.region, year, mmr)
+
+mmr_region__ <- rbind(mmr_region_, roc_region) %>% 
+  mutate(year = as.numeric(year)) %>% 
+  rbind()
 
