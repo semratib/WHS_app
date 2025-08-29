@@ -32,9 +32,10 @@ library(rlist)
 
 source("rmd/graph_functions.R")
 
-# load(file = "data_2021v2.rda")
-# load(file = "sdgdata_new.rda")
 load(file = "datasets.rda")
+
+country_table <- read.csv("rmd/country_table.csv")
+
 set.seed(1)
 
 
@@ -45,50 +46,11 @@ customcolors <- c("#1C99DB", "#85C122", "#F2A60D", "#A51C87", "#A200FF", "#EFDDD
                   "#AA00BD", "#F83DCB", "#167F8B")
 
 
-cod_decomp_time <- read.csv("input/level1_byage_sex_year_20240920.csv") %>% 
-  mutate(sex = case_when(
-    DIM_SEX_CODE=="TOTAL" ~ "Both sexes", 
-    DIM_SEX_CODE=="FEMALE" ~ "Female", 
-    DIM_SEX_CODE=="MALE" ~ "Male")) %>% 
-  mutate(country = iso3_to_names(DIM_COUNTRY_CODE),
-         region = iso3_to_regions(DIM_COUNTRY_CODE)) %>% 
-  mutate(region2 = case_when(
-    region=="WPR" ~"Western Pacific Region",
-    region=="SEAR" ~ "South-East Asia Region",
-    region=="EMR" ~ "Eastern Mediterranean Region",
-    region=="EUR" ~ "European Region",
-    region=="AMR" ~ "Region of the Americas",
-    region=="AFR" ~ "African Region")) %>% 
-  mutate(age = str_remove(DIM_AGEGROUP_CODE, "^Y")) %>% 
-  mutate(age = str_extract(age, "^[:digit:]+")) %>% 
-  mutate(age = ifelse(DIM_AGEGROUP_CODE=="YGE_85", "85", age)) %>% 
-  mutate(age = as.numeric(age)) %>% 
-  filter(DIM_AGEGROUP_CODE != "TOTAL")
 
 start_year <- c("2000", "2005", "2010", "2015", "2019")
 end_year <- c("2005", "2010", "2015", "2019", "2021")
 years_decomp <- data.frame(start_year, end_year)
 
-data_pyramid <- read.csv("input/data_pyramid_20240930.csv") %>% 
-  mutate(sex = case_when(
-    DIM_SEX_CODE=="TOTAL" ~ "Both sexes", 
-    DIM_SEX_CODE=="FEMALE" ~ "Female", 
-    DIM_SEX_CODE=="MALE" ~ "Male")) %>% 
-  mutate(country = iso3_to_names(DIM_COUNTRY_CODE),
-         region = iso3_to_regions(DIM_COUNTRY_CODE)) %>% 
-  mutate(region2 = case_when(
-    region=="WPR" ~"Western Pacific Region",
-    region=="SEAR" ~ "South-East Asia Region",
-    region=="EMR" ~ "Eastern Mediterranean Region",
-    region=="EUR" ~ "European Region",
-    region=="AMR" ~ "Region of the Americas",
-    region=="AFR" ~ "African Region"))
-
-country_table <- read.csv("rmd/country_table.csv")
-
-# Myhcmap <- rjson::fromJSON(file="poly.json")
-# Myhcmap2 <- rjson::fromJSON(file="line.json")
-# Myhcmap3 <- rjson::fromJSON(file="poly2.json")
 
 iso3sdg_ <- filtered_indicator_values %>% filter(aggregation_level == "iso3") %>% distinct(country) %>% pull()
 indsdg_ <- filtered_indicator_values %>% arrange(indicator_name) %>% distinct(indicator_name) %>% pull()
@@ -292,24 +254,6 @@ inds_all <- inds %>%
   c(inds_summary) %>%
   unname()
 
-all_plt_dat <- arrow::read_parquet("input/2024-03-26-10-06_summary.parquet") %>% 
-  mutate(country = whoville::iso3_to_names(aggregate_id),
-         country = ifelse(is.na(country),
-                          case_when(
-                            aggregate_id=="global" ~"Global",
-                            aggregate_id=="AFR" ~"African Region",
-                            aggregate_id=="AMR" ~"Region of the Americas",
-                            aggregate_id=="EMR" ~"Eastern Mediterranean Region",
-                            aggregate_id=="EUR" ~"European Region",
-                            aggregate_id=="SEAR" ~"South-East Asia Region",
-                            aggregate_id=="WPR" ~"Western Pacific Region"
-                          ),
-                          country)
-  ) %>% 
-  mutate(
-    contribution = mean_contribution,
-    contribution_mln = contribution / 1e6
-  ) 
 
 
 # Load Maternal Mortality Data ----------------------------------------------------------------------------------

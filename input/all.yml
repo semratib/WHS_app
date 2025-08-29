@@ -1,0 +1,124 @@
+# NOTE: can specify user specific directories in separate sections below
+default:
+
+  output_dir_base: "~/localfiles/outputs"
+
+  # directory where original 'billy' infrastructure saved outputs
+  output_dir_base_old: "~/localfiles/billy/inst/extdat/"
+
+  future_workers: 40 # specified for large azure compute instance
+
+  # NOTE: can forecast a group of indicators "all", "uhc", "hpop", "hep" or specify as "custom"
+  # If "custom" list indicators to forecast with "forecast_custom_inds"
+  forecast_group_inds: "all"
+  forecast_custom_inds:
+    - "espar"
+    - "art"
+
+  n_draws: 1000
+
+  obs_dat_scenario_priority:
+    - routine # program provided data
+    - reference_infilling # interpolation done in our data ingestion pipeline
+
+  # indicators for which to keep `reference_infilling` data after the last
+  # reported `routine` value
+  keep_last_reference_inds:
+    - "anc4"
+    - "art"
+    - "beds"
+    - "bp"
+    - "doctors"
+    - "espar"
+    - "fh"
+    - "fp"
+    - "hwf"
+    - "meningitis_routine"
+    - "meningitis_routine_num"
+    - "nurses"
+    - "pneumo"
+    - "tb"
+    - "uhc_tobacco"
+
+  # indicators for which to keep `reference_infilling` data before the first
+  # reported value
+  keep_first_reference_inds:
+    - "anc4"
+    - "beds"
+    - "meningitis_routine"
+    - "meningitis_routine_num"
+    - "pneumo"
+
+  # NOTE: specify which locations to fit with "global" or a WHO region ("EMR", "AMR", "AFR", "WPR", "EUR", "SEAR")
+  iso3_forecast: !expr whoville::who_member_states()
+  # iso3_forecast: !expr whoville::countries %>% filter(who_region == "AFR") %>% pull(iso3)
+
+  # NOTE: use this to test a series of FABLE models and only plot the baseline model forecasts (skip the covid adjustments)
+  run_baseline_comparison: FALSE
+  compare_baseline_formulas:
+    - "arima_010_drift"
+    - "arima_drift_search"
+    - "ets_trend_N"
+    - "ets_trend_A"
+    - "ets_trend_Ad"
+    - "ets_trend_search"
+
+  # created in 'billionaiRe::calculate_hep_prevent_ind'
+  hep_intermediate_inds:
+    - "prevent"
+    - "espar"
+    - "detect_respond"
+
+  reporting_quantiles:
+    - 0.05
+    - 0.5
+    - 0.95
+
+  # NOTE: need to create estimate between year start and year end using any data available in the time range
+  year_start: 2000
+  year_end: 2030
+
+  years_label_plot:
+    - 2023
+    - 2025
+    - 2028
+    - 2030
+
+  required_start_year: 2018
+  scenario_baseline_year: 2022 # TODO: okay to change from 2021 since more data available from 2022 now?
+
+  scenario_labels:
+    baseline: "Forecast"
+    sdg_met_every_country: "SDG goals met in all countries"
+    sdg_met_globally: "SDG goals met at global level"
+    global_best_practice_arc: "Global best practice"
+    who_region_best_practice_arc: "Regional best practice"
+
+  billion_labels:
+    hpop: "Healthier Populations"
+    uhc: "Universal Health Coverage"
+    hep: "Health Emergencies Protection"
+
+  # Intermediate indicators that will only be included in detailed review plots
+  detailed_plot_only_inds:
+    - "asc"
+    - "uhc_sm"
+    - "fh"
+    - "prevent"
+    - "hep_idx"
+
+  # The current best version of the forecast process (to include in detailed internal review plots)
+  # NOTE: these are currently separate by billion since the old 'billy' infrastructure was used
+  # TODO: make sure these versions exist on azure
+  version_forecast_previous:
+    hpop: "2023_05_14_hpop"
+    uhc: "2023_05_18_uhc"
+    hep: "2023_05_17_hep"
+
+charltoncallender:
+  output_dir_base: "~/Documents/who/billy2_outputs/"
+
+  # directory where original 'billy' infrastructure saved outputs
+  output_dir_base_old: "~/Documents/who/billy/inst/extdat/"
+
+  future_workers: !expr future::availableCores() / 2

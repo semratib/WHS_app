@@ -87,6 +87,43 @@ top5country_ <- top5country %>%
 
 top10 <- rbind(top5global, top5region_, top5country_) 
 
+## For report ------------------------------------------------------------------
+data_pyramid <- read.csv("input/data_pyramid_20240930.csv") %>% 
+  mutate(sex = case_when(
+    DIM_SEX_CODE=="TOTAL" ~ "Both sexes", 
+    DIM_SEX_CODE=="FEMALE" ~ "Female", 
+    DIM_SEX_CODE=="MALE" ~ "Male")) %>% 
+  mutate(country = iso3_to_names(DIM_COUNTRY_CODE),
+         region = iso3_to_regions(DIM_COUNTRY_CODE)) %>% 
+  mutate(region2 = case_when(
+    region=="WPR" ~"Western Pacific Region",
+    region=="SEAR" ~ "South-East Asia Region",
+    region=="EMR" ~ "Eastern Mediterranean Region",
+    region=="EUR" ~ "European Region",
+    region=="AMR" ~ "Region of the Americas",
+    region=="AFR" ~ "African Region"))
+
+## For decomposition graph  --------------------------------------------------
+cod_decomp_time <- read.csv("input/level1_byage_sex_year_20240920.csv") %>% 
+  mutate(sex = case_when(
+    DIM_SEX_CODE=="TOTAL" ~ "Both sexes", 
+    DIM_SEX_CODE=="FEMALE" ~ "Female", 
+    DIM_SEX_CODE=="MALE" ~ "Male")) %>% 
+  mutate(country = iso3_to_names(DIM_COUNTRY_CODE),
+         region = iso3_to_regions(DIM_COUNTRY_CODE)) %>% 
+  mutate(region2 = case_when(
+    region=="WPR" ~"Western Pacific Region",
+    region=="SEAR" ~ "South-East Asia Region",
+    region=="EMR" ~ "Eastern Mediterranean Region",
+    region=="EUR" ~ "European Region",
+    region=="AMR" ~ "Region of the Americas",
+    region=="AFR" ~ "African Region")) %>% 
+  mutate(age = str_remove(DIM_AGEGROUP_CODE, "^Y")) %>% 
+  mutate(age = str_extract(age, "^[:digit:]+")) %>% 
+  mutate(age = ifelse(DIM_AGEGROUP_CODE=="YGE_85", "85", age)) %>% 
+  mutate(age = as.numeric(age)) %>% 
+  filter(DIM_AGEGROUP_CODE != "TOTAL")
+
 
 # Data for SDG Benchmarking  ---------------------------------------------------
 
@@ -334,5 +371,26 @@ ind_df <- billionaiRe::indicator_df %>%
   select(gpw13_indicator_code = ind, order) %>% 
   mutate(order = ifelse(gpw13_indicator_code %in% c("uhc_sm", "asc"), 35, order))
 
-save(data, cod00, cod19, top10, filtered_indicator_values, ind_df, file = "datasets.rda")
+
+## Full 3B data 
+all_plt_dat <- arrow::read_parquet("input/2024-03-26-10-06_summary.parquet") %>% 
+  mutate(country = whoville::iso3_to_names(aggregate_id),
+         country = ifelse(is.na(country),
+                          case_when(
+                            aggregate_id=="global" ~"Global",
+                            aggregate_id=="AFR" ~"African Region",
+                            aggregate_id=="AMR" ~"Region of the Americas",
+                            aggregate_id=="EMR" ~"Eastern Mediterranean Region",
+                            aggregate_id=="EUR" ~"European Region",
+                            aggregate_id=="SEAR" ~"South-East Asia Region",
+                            aggregate_id=="WPR" ~"Western Pacific Region"
+                          ),
+                          country)
+  ) %>% 
+  mutate(
+    contribution = mean_contribution,
+    contribution_mln = contribution / 1e6
+  ) 
+
+save(data, cod00, cod19, top10, data_pyramid, cod_decomp_time, filtered_indicator_values, ind_df, all_plt_dat, file = "datasets.rda")
 
