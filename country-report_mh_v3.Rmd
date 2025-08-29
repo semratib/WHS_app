@@ -1,0 +1,1125 @@
+---
+header-includes:
+- \usepackage{floatrow}
+- \floatsetup[figure]{capposition=bottom}
+- \floatplacement{figure}{H}
+- \usepackage[sfdefault, lf]{carlito}
+- \usepackage{setspace}
+- \usepackage{xcolor} % Use color package for customization
+- \definecolor{whodarkblue}{RGB}{0, 32, 92}
+- \definecolor{wholightblue}{RGB}{0, 154, 222}
+- \definecolor{wholightblueshade}{RGB}{121, 181, 227}
+- \definecolor{wholightblueshadev2}{RGB}{201, 221, 243}
+- \definecolor{websitecolor}{RGB}{7, 113, 160}
+- \singlespacing
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+- \fancyhf{}
+# - \fancyfoot[C]{\color{whodarkblue} Internal copy. Not for redistribution.}
+- \renewcommand{\footrulewidth}{0pt}
+- \renewcommand{\headrulewidth}{0pt}
+- \setlength{\footskip}{35pt}
+- \usepackage{pdflscape}
+- \newcommand{\blandscape}{\begin{landscape}}
+- \newcommand{\elandscape}{\end{landscape}}
+- \pagenumbering{gobble}
+output:
+  pdf_document:
+    toc: false
+latex_engine: pdflatex
+fontsize: 11pt
+params:
+  country_name: NA
+  country_iso: NA
+  cod19: NA
+  cod00: NA
+  ledata: NA
+  country_table: NA
+  data_mmr: NA
+  mmr_region: NA
+  final_: NA
+geometry: left=1.3cm,right=1.3cm,top=1.5cm,bottom=1.5cm
+---
+```{r parameters, echo = FALSE, message = FALSE, include = FALSE, eval = TRUE}
+list2env(params, .GlobalEnv)
+# country_name = "Central African Republic"; country_iso = "CAF"
+# country_iso = country_table %>% filter(Title == i) %>% pull(Code)
+```
+\thispagestyle{empty}
+\pagecolor{whodarkblue}
+
+\begin{flushleft}
+{\color{white}\rule{\linewidth}{0.25mm}} \\
+\vspace{1.5cm}
+{\fontsize{30}{40}\selectfont \color{white} Vital signs for maternal health} \\
+\vspace{1.5cm}
+{\fontsize{25}{30}\selectfont \color{wholightblueshade} `r toupper(country_name)`}
+
+\vspace*{15cm} 
+
+\end{flushleft}
+
+\begin{flushright}
+\includegraphics[width=5cm]{rmd/WHO-EN-W-H.png}
+\end{flushright}
+
+<!-- \begin{flushright} -->
+<!-- {\fontsize{8}{9}\selectfont \color{white} Last updated 11 February 2025}\\ -->
+<!-- \end{flushright} -->
+
+
+\newpage
+\pagecolor{white}
+
+```{r settings, echo= FALSE, message = FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.lp = '')
+```
+
+```{r packages, include=FALSE}
+library(tidyverse)
+library(treemap)
+library(sf)
+library(RColorBrewer)
+library(ggpol)
+library(extrafont)
+library(showtext)
+library(patchwork)
+library(grid)
+library(cowplot)
+library(ggnewscale)
+library(whoville)
+library(ggrepel)
+library(scales)
+library(ggfittext)
+library(flextable)
+
+font_add("calibri", regular = "fonts/calibri/calibri.ttf")
+showtext_auto()
+
+font_add("calibrib", regular = "fonts/calibri/calibrib.ttf")
+
+theme_set(theme(text = element_text(family="calibri"),
+                title = element_text(family="calibri"),
+                axis.text.x = element_text(family = "calibri"),
+                legend.text = element_text(family="calibri"),
+          axis.text.y = element_text(family = "calibri"),
+          axis.title.x = element_text(family = "calibri"),
+          axis.title.y = element_text(family = "calibri")))
+```
+
+```{r shapefiles, warning=F, message=F, include=F, results='hide'}
+# shapefiles (https://intranet.who.int/sites/ghogis/standards/maptemplates/index.shtml)
+poly_filepath = "input/shapefiles/MapTemplate_generalized_2013/Shapefiles/"
+poly <- st_read(dsn = poly_filepath, layer = "general_2013")
+poly_mask <- st_read(dsn = poly_filepath, layer = "maskpoly_general_2013")
+poly_line <- st_read(dsn = poly_filepath, layer = "maskline_general_2013")
+```
+
+```{r region_info, results='hide'}
+# country_table <- ghost::gho_dimension_values("COUNTRY")
+# country_table <- read.csv("rmd/country_table.csv")
+who_region <- "AFR"
+who_region_name = "African Region"
+who_region_countries <- country_table %>% filter(ParentCode == "AFR") %>% pull(Code) %>% substr(1,3) %>% unique()
+lev1_causes <- c("Communicable, maternal, perinatal and nutritional conditions", "Noncommunicable diseases", "Injuries", "Other COVID-19 pandemic-related outcomes")
+year <- 2021
+comp_year <- 2000
+country_ <- country_name
+
+```
+
+```{r data, results='hide', include=F}
+# load(file = "data_2021v2.rda")
+
+rmnch_est <- read_sf("input/rmnch/map_estimates_rmnch_all_scaled_update.shp") %>%
+  mutate(region_ = str_to_title(region)) %>%
+  mutate(width = round(upper - lower, digits = 1)) %>%
+  mutate(country =iso3_to_names(iso3))
+  
+rmnch_year <- rmnch_est %>% 
+  filter(iso3 == country_iso) %>% 
+  distinct(year) %>% pull()
+
+# data_mmr <- read.csv("input/mmr.csv") %>% filter(ParentLocationCode=="AFR")
+# 
+# mmr_region <- read.csv("input/mmr_region.csv") %>% filter(Region.code %in% c("Global", "AFR"))
+# 
+# final_ <- read.csv("input/mmr_forecast.csv") %>% mutate(country =iso3_to_names(iso3))
+
+```
+
+```{r text_values, results='hide', include=F}
+# total population
+total_pop <- cod19 %>% 
+  filter(sex == "Both sexes" & 
+           DIM_AGEGROUP_CODE == "TOTAL" &
+           DIM_COUNTRY_CODE == country_iso) %>%
+  pull(ATTR_POPULATION_NUMERIC) %>% unique() %>% format(big.mark = ",", scientific = FALSE)
+
+# life expectancy
+life_exp <- ledata %>% 
+  filter(iso3 == country_iso &
+          sex == "Both sexes" &
+          year == 2021) %>% 
+  pull(stringvalue)
+
+# total number of deaths
+total_deaths <- cod19 %>%
+    filter(sex == "Both sexes" & 
+           DIM_AGEGROUP_CODE == "TOTAL" &
+           DIM_COUNTRY_CODE == country_iso & 
+             FLAG_LEVEL == 0) %>%
+    pull(VAL_DEATHS_COUNT_NUMERIC)
+
+# level 1 cause fractions
+lev1 <- cod19 %>%
+    filter(DIM_COUNTRY_CODE == country_iso & 
+             DIM_AGEGROUP_CODE == "TOTAL" & 
+             sex == "Both sexes" & 
+             FLAG_LEVEL == 1) %>%
+    mutate(cf = round(100 * VAL_DEATHS_COUNT_NUMERIC / total_deaths),
+           DIM_GHECAUSE_TITLE = tolower(DIM_GHECAUSE_TITLE)) %>%
+    select(DIM_GHECAUSE_TITLE, cf) %>%
+    arrange(-cf)
+
+# level 2 cause fractions
+lev2 <- cod19 %>%
+    filter(DIM_COUNTRY_CODE == country_iso & 
+             DIM_AGEGROUP_CODE == "TOTAL" & 
+             sex == "Both sexes" & 
+             FLAG_LEVEL == 2) %>%
+    mutate(cf = round(100 * VAL_DEATHS_COUNT_NUMERIC / total_deaths),
+           DIM_GHECAUSE_TITLE = tolower(DIM_GHECAUSE_TITLE)) %>%
+    select(DIM_GHECAUSE_TITLE, cf) %>%
+    arrange(-cf)
+
+lev2comp <- cod00 %>%
+    filter(DIM_COUNTRY_CODE == country_iso & 
+             DIM_AGEGROUP_CODE == "TOTAL" &
+             sex == "Both sexes" & 
+             FLAG_LEVEL == 2) %>%
+    mutate(cf = round(100 * VAL_DEATHS_COUNT_NUMERIC / total_deaths),
+           DIM_GHECAUSE_TITLE = tolower(DIM_GHECAUSE_TITLE)) %>%
+    select(DIM_GHECAUSE_TITLE, cf) %>%
+    arrange(-cf)
+
+comp_year <- 2000
+same_or_different <- ifelse(all(lev2[1:5,1] == lev2comp[1:5,1]), "the same as", "different from")
+comparison_string <- ifelse(same_or_different == "the same as", paste0(comp_year),
+                            paste0(comp_year, " which were ",
+                                   paste(as.vector(lev2comp[1:5,]$DIM_GHECAUSE_TITLE), collapse = "; "),
+                                   " in that order"))
+
+# death rates in region
+# mort_region <- data %>%
+#   filter(DIM_COUNTRY_CODE %in% who_region_countries &
+#          DIM_YEAR_CODE == year & DIM_AGEGROUP_CODE == "ALLAges" &
+#          DIM_SEX_CODE == "BTSX" & FLAG_LEVEL == 0) %>%
+#   mutate(rank = rank(VAL_DEATHS_RATE100K_NUMERIC))
+# death_rate <- mort_region %>%
+#   filter(DIM_COUNTRY_CODE == country_iso) %>%
+#   pull(VAL_DALY_RATE100K_NUMERIC) %>% round() %>%
+#   format(big.mark = ",", scientific=F)
+# death_rank <- mort_region %>%
+#   filter(DIM_COUNTRY_CODE == country_iso) %>%
+#   pull(rank)
+```
+\raggedright
+\
+<!-- `r country_name` has a total population of `r total_pop` and a life expectancy at birth of `r life_exp` years in `r year`. Of the `r format(round(total_deaths), big.mark=",", scientific=F)` total deaths in `r year`, `r lev1[1,2]`% were from `r lev1[1,1]`; `r lev1[2,2]`% were from `r lev1[2,1]`; and `r lev1[3,2]`% were from `r lev1[3,1]`. The top five level-2 causes of death were `r lev2[1,1]` (`r lev2[1,2]`%), `r lev2[2,1]` (`r lev2[2,2]`%), `r lev2[3,1]` (`r lev2[3,2]`%), `r lev2[4,1]` (`r lev2[4,2]`%), and `r lev2[5,1]` (`r lev2[5,2]`%). This is `r same_or_different` the top five causes in `r comparison_string`.  -->
+`r country_name` had a life expectancy at birth of `r life_exp` years in `r year`. Of the `r format(round(total_deaths), big.mark=",", scientific=F)` total deaths in `r year`, `r lev1[1,2]`% were from `r lev1[1,1]`; `r lev1[2,2]`% were from `r lev1[2,1]`; and `r lev1[3,2]`% were from `r lev1[3,1]`. The top three level-2 causes of death were `r lev2[1,1]` (`r lev2[1,2]`%), `r lev2[2,1]` (`r lev2[2,2]`%) and `r lev2[3,1]` (`r lev2[3,2]`%).
+\
+\
+\
+\centering
+```{r mmr, fig.showtext = TRUE, fig.height=3.4, fig.width=7}
+# Bench mark graph
+# 
+# mmr_region_ <- mmr_region %>%
+#   filter(Year==2020) %>%
+#   mutate(mmr = as.numeric(str_extract(Maternal.mortality.ratio..per.100.000.live.births., "^[:digit:]+"))) %>%
+#   select(WHO.region, Year, mmr)
+# 
+# mmr_ <- data_mmr %>%
+#   filter(IndicatorCode == "MDG_0000000026" &
+#            SpatialDimValueCode == country_iso &
+#            Period==2020) %>%
+#   select(Year = Period, WHO.region = Location, mmr = FactValueNumeric)
+# 
+# mmr_top_reg_ <- data_mmr %>%
+#   filter(IndicatorCode == "MDG_0000000026" &
+#            Period==2020) %>%
+#   arrange(Period, -FactValueNumeric) %>%
+#   group_by(Period) %>% filter(row_number()==1) %>% ungroup()%>%
+#   select(Year = Period, mmr = FactValueNumeric, WHO.region = Location)
+# 
+# mmr_low_reg_ <- data_mmr %>%
+#   filter(IndicatorCode == "MDG_0000000026" &
+#            Period==2020) %>%
+#   arrange(Period, FactValueNumeric) %>%
+#   group_by(Period) %>% filter(row_number()==1) %>% ungroup() %>%
+#   select(Year = Period, mmr = FactValueNumeric, WHO.region = Location)
+# 
+# country_low <- mmr_low_reg_ %>% pull(WHO.region)
+# country_high <- mmr_top_reg_ %>% pull(WHO.region)
+# iso3_low <- data_mmr %>% filter(Location==country_low) %>% distinct(SpatialDimValueCode) %>% pull(SpatialDimValueCode)
+# iso3_high <- data_mmr %>% filter(Location==country_high) %>% distinct(SpatialDimValueCode) %>% pull(SpatialDimValueCode)
+# 
+# test <- rbind(mmr_, mmr_region_, mmr_low_reg_, mmr_top_reg_)
+# 
+# mmr_region_2000 <- mmr_region %>%
+#   filter(Year==2000) %>%
+#   mutate(mmr = as.numeric(str_extract(Maternal.mortality.ratio..per.100.000.live.births., "^[:digit:]+"))) %>%
+#   select(WHO.region, Year, mmr)
+# 
+# mmr_2000 <- data_mmr %>%
+#   filter(IndicatorCode == "MDG_0000000026" &
+#            SpatialDimValueCode %in% c(country_iso, iso3_low, iso3_high) &
+#            Period==2000) %>%
+#   select(Year = Period, WHO.region = Location, mmr = FactValueNumeric)
+# 
+# 
+# test3 <- rbind(test, mmr_2000, mmr_region_2000) %>%
+#   arrange(Year, WHO.region) %>%
+#   mutate(rank = case_when(WHO.region== country_low ~ paste0(country_low, " (region lowest)"),
+#                           WHO.region== country_high ~ paste0(country_high, " (region highest)"))) %>%
+#   mutate(country = coalesce(rank, WHO.region)) %>%
+#   arrange(country)
+# 
+# country_low_ <- test3 %>% distinct(WHO.region,country) %>% filter(WHO.region==country_low) %>% pull(country)
+# country_high_ <- test3 %>% distinct(WHO.region,country) %>% filter(WHO.region==country_high) %>% pull(country)
+# 
+# test3$country <- factor(test3$country, levels = c(country_name, "Africa", "Global", country_low_, country_high_))
+# 
+# test3 <- test3 %>%
+#   mutate(mmr_ = round(mmr, digits = 0)) %>%
+#   rename(mmr = mmr_, mmr_prev = mmr)
+# diff <- test3 %>%
+#   select(Year, country, mmr) %>%
+#   pivot_wider(names_from = Year, values_from = mmr) %>%
+#   mutate(mmr = `2000` - `2020`,
+#          Year = 2000) %>%
+#   select(Year, country, mmr)
+# 
+# test4 <- rbind(test3 %>% filter(Year==2020) %>% select(country, Year, mmr), diff)
+# 
+# plot <- ggplot() +
+#   geom_bar(data = test4, aes(x=country, y=mmr, color = country, fill = country), stat="identity", position = "stack", width = 0.5, alpha = 0, show.legend = FALSE, size = 1)+
+#   geom_bar(data = test3 %>% filter(Year==2000), aes(x=country, y=mmr, fill = country), stat="identity", width = 0.5, alpha=0.5, show.legend = FALSE) +
+#   geom_bar(data = test3 %>% filter(Year==2020), aes(x=country, y=mmr, fill = country), stat="identity", width = 0.5, show.legend = FALSE) +
+#   geom_point(data = test3 %>% distinct(country) %>% mutate(target=70), aes(x=country, y = target), shape = 108, size = 5, color = "#00205C")+
+#   geom_text(data = test3 %>% filter(Year==2020), aes(x=country, y=mmr, label = mmr), hjust = 1.3, fontface = "bold", size = 2.5)+
+#   geom_text(data = test3 %>% filter(Year==2000), aes(x=country, y=mmr, label = mmr), hjust = -0.8, size = 2.5)+
+#   coord_flip()+
+#   theme_classic() +
+#   theme(
+#     legend.position = "bottom",
+#     text = element_text(size = 9)
+#   ) +
+#   ylab("Maternal Mortality Ratio (per 100,000 live births)")+
+#   xlab("")+
+#   scale_x_discrete(limits=rev)+
+#   scale_y_continuous(breaks = c(0, 70, 500, 1000, 1500), limits = c(0, 1800)) +
+#   scale_fill_manual(values = c("#F4A81D", "#80BC00", "#A6228C", "#009ADE", "#F26829")) +
+#   scale_color_manual(values = c("#F4A81D", "#80BC00", "#A6228C", "#009ADE", "#F26829"))
+# 
+# leg <- ggplot() +
+#   geom_tile(aes(x = 1, y = 1), fill = "#EF7C47")+
+#   geom_tile(aes(x = 4.4, y = 1), fill = "#EFA685", color = "#EF7C47", size = 1)+
+#   geom_text(aes(x = 2.5, y = 1, label = "MMR in 2020"), fontface = "bold", size=2.5)+
+#   geom_text(aes(x = 7, y = 1, label = "Change in MMR, 2000-2020"), size=2.5)+
+# 
+#   geom_tile(aes(x = 9.5, y = 1, width = 0.1), fill = "#00205C")+
+#   geom_text(aes(x = 11.1, y = 1, label = "SDG target on MMR"), size=2.5)+
+# 
+#   theme_void()+
+#   scale_x_continuous(limits = c(0, 13.5))
+# 
+# ggdraw() +
+#   draw_plot(plot, 0, 0.1, 1, 0.9) +
+#   draw_plot(leg, 0.25, 0.02, 0.6, 0.07)
+
+mmr_region_ <- mmr_region %>% 
+  filter(Region.code == who_region | WHO.region == "Global") %>% 
+  filter(Year==2020) %>% 
+  mutate(mmr = as.numeric(str_extract(Maternal.mortality.ratio..per.100.000.live.births., "^[:digit:]+"))) %>% 
+  select(WHO.region, Year, mmr) 
+
+mmr_ <- data_mmr %>% 
+  filter(IndicatorCode == "MDG_0000000026" &
+           SpatialDimValueCode == country_iso & 
+           Period==2020) %>% 
+  select(Year = Period, WHO.region = Location, mmr = FactValueNumeric) 
+
+test <- rbind(mmr_, mmr_region_) 
+
+mmr_region_2000 <- mmr_region %>% 
+  filter(Region.code == who_region | WHO.region == "Global") %>% 
+  filter(Year==2000) %>% 
+  mutate(mmr = as.numeric(str_extract(Maternal.mortality.ratio..per.100.000.live.births., "^[:digit:]+"))) %>% 
+  select(WHO.region, Year, mmr) 
+
+mmr_2000 <- data_mmr %>% 
+  filter(IndicatorCode == "MDG_0000000026" &
+           SpatialDimValueCode %in% c(country_iso) & 
+           Period==2000) %>% 
+  select(Year = Period, WHO.region = Location, mmr = FactValueNumeric)   
+
+
+test3 <- rbind(test, mmr_2000, mmr_region_2000) %>%
+  rename(country = WHO.region)
+  # arrange(Year, WHO.region) %>%
+  # mutate(rank = case_when(WHO.region== country_low ~ paste0(country_low, " (region lowest)"),
+  #                         WHO.region== country_high ~ paste0(country_high, " (region highest)"))) %>%
+  # mutate(country = coalesce(rank, WHO.region)) %>% 
+  # arrange(country)
+
+test3$country <- factor(test3$country, levels = c(country_, "Africa", "Global"))
+
+test3 <- test3 %>% 
+  mutate(mmr_ = round(mmr, digits = 0)) %>% 
+  rename(mmr = mmr_, mmr_prev = mmr)
+diff <- test3 %>%
+  select(Year, country, mmr) %>%
+  pivot_wider(names_from = Year, values_from = mmr) %>%
+  mutate(mmr = `2000` - `2020`,
+         Year = 2000) %>%
+  select(Year, country, mmr)
+
+test4 <- rbind(test3 %>% filter(Year==2020) %>% select(country, Year, mmr), diff)
+max_mmr <- plyr::round_any(max(test3$mmr), 500, f = ceiling)
+
+plot <- ggplot() +
+  geom_bar(data = test4, aes(x=country, y=mmr), stat="identity", position = "stack", width = 0.5, alpha = 0, show.legend = FALSE, size = 1)+
+  geom_bar(data = test3 %>% filter(Year==2000), aes(x=country, y=mmr), stat="identity", width = 0.5, alpha=0.4, show.legend = FALSE, fill = "#009ADE", color = "#009ADE") +
+  geom_bar(data = test3 %>% filter(Year==2020), aes(x=country, y=mmr), stat="identity", width = 0.5, alpha=0.7, show.legend = FALSE, fill = "#009ADE", color = "#009ADE") +
+  geom_hline(aes(yintercept = 70), color = "#00205C") +
+  # geom_point(data = test3 %>% distinct(country) %>% mutate(target=70), aes(x=country, y = target), shape = 108, size = 5, color = "#00205C")+
+  geom_text(data = test3 %>% filter(Year==2020), aes(x=country, y=mmr, label = mmr), hjust = 1.3, fontface = "bold", size = 3)+
+  geom_text(data = test3 %>% filter(Year==2000), aes(x=country, y=mmr, label = mmr), hjust = -0.8, size = 3)+
+  coord_flip()+
+  theme_classic() +
+  theme(
+    axis.text=element_text(size=9),
+    axis.text.x = element_text(angle = 0, vjust = 0.5, hjust = 0.5, color = "black"),
+    axis.title.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.title.y = element_blank(),
+    panel.border = element_blank(),
+    axis.line.y = element_blank(),
+    axis.line.x = element_line(color = "darkgrey",linetype = 1),
+    panel.grid.major.x = element_line(color = "darkgrey",size = 0.5,linetype = 1),
+    panel.grid.major.y = element_blank(), 
+    panel.grid = element_blank(),
+    panel.background = element_rect(fill = "white"),
+    plot.margin = margin(t=0, l=0.5, b=0, r=0.5, unit = "cm")
+  ) +
+  # ylab("Maternal Mortality Ratio (per 100,000 live births)")+ 
+  # xlab("")+
+  scale_x_discrete(limits=rev)+
+  scale_y_continuous(breaks = c(0, 70, 500, 1000, 1500, 2000), limits = c(0, max_mmr), expand = c(0,0))
+  # scale_fill_manual(values = c("#009ADE", "#A6228C", "#F4A81D", "#80BC00", "#F26829")) +
+  # scale_color_manual(values = c("#009ADE", "#A6228C", "#F4A81D", "#80BC00",  "#F26829")) 
+  
+
+leg <- ggplot() +
+  geom_tile(aes(x = 1, y = 1), fill = "#009ADE", alpha = 0.7)+
+  geom_tile(aes(x = 4.4, y = 1), fill = "#79B5E3", color = "#009ADE", size = 1)+
+  geom_text(aes(x = 2.5, y = 1, label = "MMR in 2020"), fontface = "bold", size=2.5)+
+  geom_text(aes(x = 7, y = 1, label = "Change in MMR, 2000-2020"), size=2.5)+
+  
+  geom_tile(aes(x = 9.5, y = 1, width = 0.1), fill = "#00205C")+
+  geom_text(aes(x = 11.1, y = 1, label = "SDG target for MMR"), size=2.5)+
+  
+  theme_void()+
+  scale_x_continuous(limits = c(0, 13.5))
+
+ggdraw() +
+  draw_plot(plot, 0, 0.1, 1, 0.9) +
+  draw_plot(leg, 0.15, 0.015, 0.75, 0.07)
+
+```
+Maternal Mortality Ratio, 2000 and 2020.
+\
+\
+\
+```{r treemap_prep, echo=FALSE, results='hide', include=FALSE}
+data_treemap <- cod19 %>%
+  filter(DIM_COUNTRY_CODE == country_iso & FLAG_TREEMAP == 1 & sex=="Both sexes" & DIM_AGEGROUP_CODE == "TOTAL") 
+
+data_treemap_2000 <- cod00 %>%
+  filter(DIM_COUNTRY_CODE == country_iso & FLAG_TREEMAP == 1 & sex=="Both sexes" & DIM_AGEGROUP_CODE == "TOTAL")
+
+total_deaths <- cod19 %>%
+  filter(DIM_COUNTRY_CODE == country_iso & FLAG_LEVEL == 0 & sex=="Both sexes" & DIM_AGEGROUP_CODE == "TOTAL") %>%
+  pull(VAL_DEATHS_COUNT_NUMERIC) %>% round()
+
+total_deaths_2000 <- cod00 %>%
+  filter(DIM_COUNTRY_CODE == country_iso & FLAG_LEVEL == 0 & sex=="Both sexes" & DIM_AGEGROUP_CODE == "TOTAL") %>%
+  pull(VAL_DEATHS_COUNT_NUMERIC) %>% round()
+
+
+# 2019
+lev1 <- cod19 %>%
+  filter(FLAG_LEVEL == 1) %>%
+  select(FLAG_CAUSEGROUP, lev1_name = DIM_GHECAUSE_TITLE) %>%
+  unique()
+data_treemap <- data_treemap %>% left_join(lev1, by = "FLAG_CAUSEGROUP")
+
+data_treemap$lev1_name <- factor(data_treemap$lev1_name, levels = lev1_causes)
+
+# add cause fraction to label if over 5%
+data_treemap <- data_treemap %>%
+  mutate(cause_fraction = VAL_DEATHS_COUNT_NUMERIC / sum(VAL_DEATHS_COUNT_NUMERIC)) %>%
+  mutate(cause_title = paste(DIM_GHECAUSE_TITLE, sprintf("(%1.1f%%)", 100*cause_fraction), sep = " "))
+
+# make treemap
+tm_2019 <- treemap(data_treemap,
+                   index=c("lev1_name","cause_title"),
+                   vSize="VAL_DEATHS_COUNT_NUMERIC",
+                   type="index",
+                   palette = "Set1",
+                   draw = FALSE)
+
+tm_plot_data <- tm_2019$tm %>%
+  mutate(x1 = x0 + w,
+         y1 = y0 + h) %>%
+  mutate(x = (x0+x1)/2,
+         y = (y0+y1)/2) %>%
+  mutate(primary_group = ifelse(is.na(cause_title), 1.2, .5)) %>%
+  mutate(color = case_when(
+    lev1_name=="Communicable, maternal, perinatal and nutritional conditions" ~"#F26829",
+    lev1_name=="Noncommunicable diseases" ~ "#009ADE",
+    lev1_name=="Injuries" ~ "#80BC00",
+    lev1_name=="Other COVID-19 pandemic-related outcomes" ~ "#A6228C"
+  )) %>%
+  mutate(color = ifelse(is.na(cause_title), NA, color)) %>%
+  mutate(color = ifelse(str_detect(cause_title, "Maternal conditions"), "#EF3842", color))
+
+tm1 <- ggplot(tm_plot_data, aes(xmin = x0, ymin = y0, xmax = x1, ymax = y1)) +
+  geom_rect(aes(fill = color, size = primary_group),
+            show.legend = FALSE, color = "white", alpha=0.5) +
+  scale_fill_identity() +
+  scale_size(range = range(tm_plot_data$primary_group)) +
+  ggfittext::geom_fit_text(aes(label = cause_title), min.size = 4, color = "black", grow = TRUE, reflow = TRUE) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme_void()+
+  labs(title = paste0("Total deaths in ", year, ": ", format(total_deaths, big.mark = ",", scientific = F)))+   ######### CHANGE BACK TO 2019
+  theme(
+    plot.margin = unit(c(0, 0, 0, 1.5), "cm"),
+    plot.title = element_text(hjust = 0.5, size = 10)
+  )
+
+
+# 2000
+lev1 <- cod00  %>%
+  filter(FLAG_LEVEL == 1) %>%
+  select(FLAG_CAUSEGROUP, lev1_name = DIM_GHECAUSE_TITLE) %>%
+  unique()
+data_treemap_2000 <- data_treemap_2000 %>% left_join(lev1, by = "FLAG_CAUSEGROUP")
+
+data_treemap_2000$lev1_name <- factor(data_treemap_2000$lev1_name, levels = lev1_causes)
+
+# add cause fraction to label if over 5%
+data_treemap_2000 <- data_treemap_2000 %>%
+  mutate(cause_fraction = VAL_DEATHS_COUNT_NUMERIC / sum(VAL_DEATHS_COUNT_NUMERIC)) %>%
+  mutate(cause_title = paste(DIM_GHECAUSE_TITLE, sprintf("(%1.1f%%)", 100*cause_fraction), sep = " "))
+
+# make treemap
+tm_2000 <- treemap(data_treemap_2000,
+                            index=c("lev1_name","cause_title"),
+                            vSize="VAL_DEATHS_COUNT_NUMERIC",
+                            type="index",
+                            palette = "Set1",
+                            draw = FALSE
+)
+
+tm_plot_data_2000 <- tm_2000$tm %>%
+  mutate(x1 = x0 + w,
+         y1 = y0 + h) %>%
+  mutate(x = (x0+x1)/2,
+         y = (y0+y1)/2) %>%
+  mutate(primary_group = ifelse(is.na(cause_title), 1.2, .5)) %>%
+  mutate(color = case_when(
+    lev1_name=="Communicable, maternal, perinatal and nutritional conditions" ~"#F26829",
+    lev1_name=="Noncommunicable diseases" ~ "#009ADE",
+    lev1_name=="Injuries" ~ "#80BC00",
+    lev1_name=="Other COVID-19 pandemic-related outcomes" ~ "#A6228C"
+  )) %>%
+  mutate(color = ifelse(is.na(cause_title), NA, color)) %>%
+  mutate(color = ifelse(str_detect(cause_title, "Maternal conditions"), "#EF3842", color))
+
+
+tm2 <- ggplot(tm_plot_data_2000, aes(xmin = x0, ymin = y0, xmax = x1, ymax = y1)) +
+  geom_rect(aes(fill = color, size = primary_group),
+            show.legend = FALSE, color = "white", alpha=0.5) +
+  scale_fill_identity() +
+  scale_size(range = range(tm_plot_data$primary_group)) +
+  ggfittext::geom_fit_text(aes(label = cause_title), min.size = 4, color = "black", grow = TRUE, reflow = TRUE) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme_void()+
+  labs(title = paste0("Total deaths in ", comp_year, ": ", format(total_deaths_2000, big.mark = ",", scientific = F)))+
+  theme(
+    plot.margin = unit(c(0, 0, 0, 0), "cm"),
+    plot.title = element_text(hjust = 0.5, size = 10),
+    legend.position = "bottom"
+  )
+```
+
+```{r treemap,  fig.showtext = TRUE, fig.width=8, fig.height=4.2}
+
+legt <- ggplot() +
+      geom_tile(aes(x = 1, y = 1), fill = "#F26829", alpha=0.5)+
+      geom_tile(aes(x = 2, y = 1), fill = "#009ADE", size = 1, alpha=0.5) +
+      geom_tile(aes(x = 3, y = 1), fill = "#80BC00", size = 1, alpha=0.5) +
+      geom_tile(aes(x = 4, y = 1), fill = "#A6228C", size = 1, alpha=0.5) +
+      geom_text(aes(x = 1, y = 0.5, label = "Communicable, maternal, perinatal\nand nutritional conditions"), size=2.5, vjust = 1.1)+
+      geom_text(aes(x = 2, y = 0.5, label = "Noncommunicable diseases"), size=2.5, vjust = 1.5)+
+      geom_text(aes(x = 3, y = 0.5, label = "Injuries"), size=2.5, vjust = 1.5)+
+      geom_text(aes(x = 4, y = 0.5, label = "Other COVID-19 pandemic-related outcomes"), size=2.5, vjust = 1.5)+
+      theme_void()+
+      scale_y_continuous(limits = c(-1,2.5))
+
+ggdraw() +
+  draw_plot(patchwork::wrap_plots(tm2, tm1, ncol = 2), 0, 0.1, 1, 0.85) +
+  draw_plot(legt, 0.02, 0.06, 0.95, 0.07)
+
+#Causes making up 5% or more of the total deaths are labeled with their cause fraction.
+```
+Deaths in `r country_name`, 2000 and 2021.
+
+
+\blandscape
+```{r arrow_deaths, fig.showtext = TRUE, fig.align='center', fig.height=7, fig.width=10}
+
+year <- 2021
+comp_year <- 2000
+
+codrankdata <- cod19 %>%
+  filter(DIM_COUNTRY_CODE == country_iso & FLAG_LEVEL == 2 & sex=="Both sexes" & DIM_AGEGROUP_CODE=="TOTAL") %>%
+  select(DIM_YEAR_CODE, DIM_GHECAUSE_TITLE, FLAG_CAUSEGROUP, VAL_DEATHS_COUNT_NUMERIC) %>%
+  rbind(
+    cod00 %>%
+      filter(DIM_COUNTRY_CODE == country_iso & FLAG_LEVEL == 2 & sex=="Both sexes" & DIM_AGEGROUP_CODE=="TOTAL") %>%
+      select(DIM_YEAR_CODE, DIM_GHECAUSE_TITLE, FLAG_CAUSEGROUP, VAL_DEATHS_COUNT_NUMERIC)
+    )
+
+lev1 <- cod19 %>%
+  filter(FLAG_LEVEL == 1) %>%
+  select(FLAG_CAUSEGROUP, lev1_name = DIM_GHECAUSE_TITLE) %>%
+  unique()
+
+# compute cause fractions and cause ranks
+data_arrow <- codrankdata %>%
+  group_by(DIM_YEAR_CODE) %>%
+  mutate(prop_deaths = VAL_DEATHS_COUNT_NUMERIC / sum(VAL_DEATHS_COUNT_NUMERIC),
+         rank_deaths = as.numeric(rank(-prop_deaths, ties.method = "first")),
+  ) %>%
+  select(FLAG_CAUSEGROUP, DIM_YEAR_CODE, DIM_GHECAUSE_TITLE, rank_deaths) %>%
+  as.tibble() %>%
+  pivot_wider(id_cols = c(FLAG_CAUSEGROUP, DIM_GHECAUSE_TITLE), names_from = DIM_YEAR_CODE,
+              values_from = rank_deaths) %>%
+  unnest() %>%
+  rename(rank_year1 = `2000`,
+         rank_year2 = `2021`) %>%
+  mutate(increasing_rank = rank_year1 < rank_year2) %>%
+  filter(rank_year1<11 | rank_year2<11) %>%
+  left_join(lev1, by = "FLAG_CAUSEGROUP")
+
+data_arrow$lev1_name <- factor(data_arrow$lev1_name, levels = lev1_causes)
+
+# create plot
+gg <- ggplot(data_arrow, aes(x=0.3, xend=1, y=-rank_year1, yend=-rank_year2)) +
+  geom_segment(aes(color=lev1_name, lty = increasing_rank), show.legend = FALSE) +
+  geom_label(aes(x = -2.1, y = -rank_year1, label = paste0(rep(" ", 73), collapse = ""), fill = lev1_name), hjust=0, alpha=0.2, size=2, family="calibri") +
+  geom_label(aes(x = 1.1, y = -rank_year2, label = paste0(rep(" ", 73), collapse = ""), fill = lev1_name), hjust=0, alpha=0.2, size=2, family="calibri") +
+
+  geom_label(data = data_arrow %>% filter(DIM_GHECAUSE_TITLE=="Maternal conditions"),
+             aes(x = -2.1, y = -rank_year1, label = paste0(rep(" ", 60), collapse = ""), fill = lev1_name), hjust=0, size=2, alpha=0.45, show.legend = FALSE, color="#EF3842") +
+  geom_label(data = data_arrow %>% filter(DIM_GHECAUSE_TITLE=="Maternal conditions"),
+             aes(x = 1.1, y = -rank_year2, label = paste0(rep(" ", 60), collapse = ""), fill = lev1_name), hjust=0, size=2, alpha=0.45, show.legend = FALSE, color="#EF3842") +
+
+  geom_label(aes(x = -2.1, y = -rank_year1, label = paste0(rank_year1, " ", DIM_GHECAUSE_TITLE), fill = lev1_name),
+             show.legend = F, hjust=0, alpha=0, size=2, label.size = NA, family="calibri") +
+  geom_label(aes(x = 1.1, y = -rank_year2, label = paste0(rank_year2, " ", DIM_GHECAUSE_TITLE), fill = lev1_name),
+             show.legend = F, hjust=0, alpha=0, size=2, label.size = NA, family="calibri") +
+  geom_label(aes(x=-2.1, y=0, label=comp_year), hjust=0, family="calibri", label.size = NA) +
+  geom_label(aes(x=1.1, y=0, label=year), hjust=0, family="calibri", label.size = NA) +
+
+  scale_color_manual(values = c("#F26829", "#009ADE", "#80BC00"))+
+  scale_fill_manual(values = c("#F26829", "#009ADE", "#80BC00"))+
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.text = element_text(family = "calibri", size = 8)) +
+  guides(color=guide_legend(nrow=3, byrow=TRUE),
+         fill=guide_legend(nrow=3, byrow=TRUE, override.aes = aes(label = "")),
+         lty="none") +
+  labs(color = "", fill = "") +
+  scale_x_continuous(limits=c(-2.6,3.5))+
+  labs(subtitle = str_wrap(paste0("Top 10 causes of death in ", country_name, ", ", comp_year, " and ", year, "."), 120))+
+  theme(
+    plot.subtitle = element_text(hjust =0.5, vjust=-235, size = 11, family="calibri"),
+    plot.margin = margin(t = 0, r = 0, b = 1.5, l = 0, unit = "cm"),
+  )
+
+## HEATMAP
+  
+data_lfexp <- ledata %>% filter(region=="AFR" & sex == "Both sexes" & year == 2021) 
+  
+top_n <- data_lfexp %>% arrange(desc(value)) %>% filter(row_number()<6) %>% pull(iso3)
+
+bot_n <- data_lfexp %>% arrange(value) %>% filter(row_number()<6) %>% pull(iso3)
+
+
+# subset data and get rank and cause-fraction
+data_heatmap <- cod19 %>%
+  filter(
+    DIM_COUNTRY_CODE %in% c(country_iso, top_n, bot_n) &
+    DIM_AGEGROUP_CODE=="TOTAL" &
+    sex=="Both sexes" &
+    FLAG_LEVEL == 2) %>%
+  group_by(DIM_COUNTRY_CODE) %>%
+  mutate(prop_deaths = VAL_DEATHS_COUNT_NUMERIC / sum(VAL_DEATHS_COUNT_NUMERIC),
+         rank_deaths = rank(-prop_deaths, ties.method = "first")) %>%
+  ungroup() %>%
+  rename(rank = rank_deaths) %>%
+  select(DIM_COUNTRY_CODE, DIM_GHECAUSE_TITLE, rank)
+
+data_heatmap_afr <- cod19 %>%
+  filter(DIM_COUNTRY_CODE %in% who_region_countries &
+           DIM_AGEGROUP_CODE=="TOTAL" &
+            sex=="Both sexes" &
+            FLAG_LEVEL == 2) %>%
+  group_by(DIM_GHECAUSE_TITLE) %>%
+  summarise(count = sum(VAL_DEATHS_COUNT_NUMERIC)) %>%
+  ungroup() %>%
+  mutate(rank_deaths = rank(-count, ties.method = "first"),
+           DIM_COUNTRY_CODE = "African Region",
+           country_name = "African Region") %>%
+  rename(rank = rank_deaths) %>%
+  select(DIM_COUNTRY_CODE, DIM_GHECAUSE_TITLE, rank, country_name)
+
+
+ # add country name and pick order
+country_name_map <- country_table %>% select(DIM_COUNTRY_CODE = Code, country_name = Title)
+data_heatmap <- merge(data_heatmap, country_name_map, by = "DIM_COUNTRY_CODE", all.x=T)
+data_heatmap <- rbind(data_heatmap_afr, data_heatmap)
+
+country_order <- c(country_name, who_region_name,
+                     setdiff(country_table %>% filter(Code %in% top_n) %>% pull(Title), country_name),
+                     setdiff(country_table %>% filter(Code %in% bot_n) %>% pull(Title), country_name)
+                     )
+
+data_heatmap$country_name <- factor(data_heatmap$country_name, levels = rev(country_order))
+
+# rank causes by country-specific death ranking
+cause_order <- data_heatmap %>% filter(DIM_COUNTRY_CODE == country_iso) %>%
+  arrange(-rank) %>% pull(DIM_GHECAUSE_TITLE)
+data_heatmap$DIM_GHECAUSE_TITLE <- factor(data_heatmap$DIM_GHECAUSE_TITLE, levels = rev(cause_order))
+
+# rank category
+data_heatmap$rank_cat <- cut(data_heatmap$rank, breaks=c(1,2,3,5,8,14,50), right=F)
+
+# country_face <- c("black", "black", rep("darkgreen", 5), rep("darkred", 5))
+
+country_face <- data_heatmap %>%
+  mutate(color = case_when(DIM_COUNTRY_CODE %in% top_n ~ "darkgreen",
+                           DIM_COUNTRY_CODE %in% bot_n ~ "darkred",
+                           DIM_COUNTRY_CODE == "African Region" ~ "black",
+                           DIM_COUNTRY_CODE == country_iso ~ "black")) %>%
+  arrange(country_name) %>%
+  distinct(country_name, color) %>% pull(color)
+
+# make plot
+hh <- ggplot(data_heatmap, aes(x=DIM_GHECAUSE_TITLE, y=country_name, fill=rank_cat, label=rank)) +
+  geom_tile() +
+  geom_text(size = 2.4) +
+  theme_classic() +
+  theme(legend.position = "none",
+        text = element_text(family="calibri", size = 8),
+        axis.text.x = element_text(angle = 90, hjust=0,  size = 8),
+        axis.text.y = element_text(size = 8, color = country_face)) +
+  labs(x="", y="", fill="Rank") +
+  scale_fill_brewer(palette = "RdYlBu") +
+  scale_x_discrete(position = "top")+
+  labs(subtitle = str_wrap(paste0("Rank of causes of deaths in ", country_name,", 2021."), 70))+
+  theme(
+    plot.subtitle = element_text(hjust =0.5, vjust=-235, size = 11, family="calibri"),
+    plot.margin = margin(t = 0, r = 0.5, b = 1.5, l = 0, unit = "cm"),
+  )
+
+
+patchwork::wrap_plots(
+  gg,
+  hh,
+  ncol = 2)
+```
+\elandscape
+
+\
+```{r mmr_forecast, fig.width=8, fig.height=4.2}
+# if( who_region=="AFR" ){ 
+
+mmr_region_ <- mmr_region %>% 
+  # filter(Region.code == who_region | Region.code == "Global") %>% 
+  mutate(mmr = as.numeric(str_extract(Maternal.mortality.ratio..per.100.000.live.births., "^[:digit:]+"))) %>% 
+  select(year = Year, WHO.region, mmr) %>% 
+  filter(year>=2000)
+
+roc_region <- mmr_region_ %>% 
+  filter(year==2000 | year==2020) %>% 
+  arrange(year) %>% 
+  pivot_wider(names_from = year, values_from = mmr) %>% 
+  mutate(roc = (log(`2020`/`2000`)) / 20) %>% 
+  mutate(n_years = (log(70/`2020`)) / roc) %>%
+  mutate(`2021` = (exp(roc*1))*`2020`,
+         `2022` = (exp(roc*2))*`2020`,
+         `2023` = (exp(roc*3))*`2020`,
+         `2024` = (exp(roc*4))*`2020`,
+         `2025` = (exp(roc*5))*`2020`,
+         `2026` = (exp(roc*6))*`2020`,
+         `2027` = (exp(roc*7))*`2020`,
+         `2028` = (exp(roc*8))*`2020`,
+         `2029` = (exp(roc*9))*`2020`,
+         `2030` = (exp(roc*10))*`2020`) %>% 
+  pivot_longer(cols = c(`2021`, `2022`, `2023`, `2024`, `2025`, `2026`,`2027`, `2028`, `2029`, `2030`), names_to = "year", values_to = "mmr") %>% 
+  mutate(mmr = round(mmr, digits = 0)) %>% 
+  select(WHO.region, year, mmr)
+
+mmr_region__ <- rbind(mmr_region_, roc_region) %>% 
+  mutate(year = as.numeric(year)) 
+  
+  
+final <- final_ %>% 
+  filter(iso3==country_iso) %>% 
+  distinct() %>% 
+  mutate(text_ = str_extract(scenario, "(?<=\\().+")) %>% 
+  mutate(text = ifelse(str_detect(text_, "percentile"), 
+                       paste0(round(mmr, digits = 0), " (Best ", text_),
+                       paste0(round(mmr, digits = 0), " (", text_))) %>% 
+  filter(text_!="60th percentile)" & text_!="70th percentile)" & text_!="80th percentile)") %>% 
+  mutate(country_name = country)
+
+max <- final %>% filter(str_detect(scenario, "Current")) %>% arrange(desc(mmr)) %>% filter(row_number()==1)
+max <- plyr::round_any(max$mmr, 100, f = ceiling)
+max <- ifelse(max<800, 800, max)
+
+colors <- c(
+  "Current rate of change)" = "black",
+  "Fastest rate of change in region)" = "#80BC00",
+  "90th percentile)" = "#009ADE",
+  "50th percentile)" = "#EF3842"
+)
+
+ggplot()+
+  geom_line(data = mmr_region__, aes(x=year, y=mmr, group=WHO.region, linetype=WHO.region), show.legend = FALSE)+
+  geom_line(data = final, aes(x=year, y=mmr, group =text_, color = text_), show.legend = FALSE)+
+  geom_text(data = final %>% filter(year==2030), 
+            aes(x=year, y = mmr, color = text_, label= str_wrap(text, 28)), 
+            show.legend = FALSE, size = 2.1, hjust = -0.05)+
+  geom_text(data = mmr_region__ %>% filter(year==2001), 
+            aes(x=year, y = mmr, label= WHO.region), 
+            show.legend = FALSE, size = 2.5, vjust = 1.5)+
+  geom_text(data = final %>% filter(year==2001),
+            aes(x=year, y = mmr, label=str_wrap(country_name, 15)),
+            show.legend = FALSE, size = 2.5, vjust = 1.5)+
+  geom_hline(yintercept = 70, color="#A6228C")+
+  geom_label(aes(x=2005,y=70,label = as.character("SDG target: 70 per 100,000 live births")), show.legend = FALSE, 
+             size = 3, vjust = -0.1, family = "calibri", label.size = NA, color="#A6228C")+
+  theme_classic()+
+  theme(text = element_text(size = 7),
+        axis.title.x = element_text(size=8),
+        axis.title.y = element_text(size=8),
+        axis.text.x = element_text(size=7),
+        axis.text.y = element_text(size=7),
+        legend.text = element_text(size = 8),
+        legend.position = "bottom",
+        legend.margin=margin(t = 0, b=0, unit='cm')
+  )+
+  ylab("Maternal Mortality Ratio (per 100,000 live births)") +
+  xlab("Year")+
+  scale_color_manual(values = colors)+
+  scale_linetype_manual(values = c("Global" = "dashed", "Africa" = "twodash"))+
+  scale_y_continuous(expand = c(0,0), limits = c(0, max))+
+  scale_x_continuous(limits = c(2000, 2035), labels = c(2000, 2010, 2020, 2030), breaks = c(2000, 2010, 2020, 2030))
+
+```
+\
+Potential trajectories of MMR in `r country_name`, 2000-2030.
+\
+\
+\
+\
+```{r mmr_region, fig.width=8, fig.height=4.5} 
+# Percent average annual change in SCI by country, 2000–2015 versus 2016–2021 ------
+mmr_rate <- data_mmr %>% 
+  filter(IndicatorCode == "MDG_0000000026" &
+           # ParentLocationCode == who_region &
+           Period>=2000) %>% 
+  select(year = Period, iso3= SpatialDimValueCode, country = Location, mmr = FactValueNumeric) %>% 
+  arrange(year)
+
+countries <- unique(mmr_rate$iso3)
+
+mmr_rate2000 <- mmr_rate %>% 
+  filter(year==2000 | year==2015) %>% 
+  pivot_wider(names_from = year, values_from = mmr) %>% 
+  mutate(roc = (log(`2015`/`2000`)) / 15)%>% 
+  select(iso3, country, `2000-2015` =roc) 
+
+mmr_rate2020 <- mmr_rate %>% 
+  filter(year==2016 | year==2020) %>% 
+  pivot_wider(names_from = year, values_from = mmr) %>% 
+  mutate(roc = (log(`2020`/`2016`)) / 5) %>% 
+  select(iso3, country, `2016-2020` = roc) 
+
+mmr2020 <- mmr_rate %>% 
+  filter(year==2020)
+
+# Maternal conditions
+mc <- cod19 %>% 
+  filter(DIM_AGEGROUP_CODE =="TOTAL" & sex=="Both sexes") %>% 
+  filter(DIM_COUNTRY_CODE %in% countries) %>% 
+  filter(DIM_GHECAUSE_CODE==0 | DIM_GHECAUSE_CODE==420) %>% 
+  select(iso3 = DIM_COUNTRY_CODE, deaths = VAL_DEATHS_COUNT_NUMERIC, DIM_GHECAUSE_TITLE) %>% 
+  pivot_wider(names_from = DIM_GHECAUSE_TITLE, values_from = deaths) %>% 
+  tidyr::unnest() %>% 
+  mutate(percent_mc = (`Maternal conditions`/`All Causes`)*100) %>% 
+  mutate(group_mc = case_when(percent_mc<1 ~ "<1%",
+                              percent_mc>=1 & percent_mc<=2 ~ "1-2%",
+                              percent_mc>2 ~ ">2%"))
+
+df <- mc %>% 
+  left_join(mmr_rate2000) %>% 
+  left_join(mmr_rate2020) %>% 
+  left_join(mmr2020)
+
+df$group_mc <- factor(df$group_mc, levels = c("<1%", "1-2%", ">2%"))
+
+
+df %>% 
+  ggplot(aes(x = `2000-2015`, y = `2016-2020`, color = group_mc, size = mmr))+
+  geom_vline(xintercept = 0)+
+  geom_hline(yintercept = 0)+
+  geom_point()+
+  ggrepel::geom_text_repel(aes(label = country), show.legend = FALSE, size = 2.5)+
+  geom_abline(intercept = 0, slope = 1, size = 0.5, linetype = "dotted")+
+  theme_classic()+
+  xlab("Annualized rate of change, MMR, 2000-2015") +
+  ylab("Annualized rate of change, MMR, 2016-2020")+
+  labs(color = "Percentage of deaths due to maternal conditions, 2019", size = "MMR, 2020")+
+  annotate("text", x = -0.149, y = 0.1, label = "Increasing MMR", size = 2.5) +
+  annotate("text", x = -0.149, y = -0.10, label = "Decreasing MMR", size = 2.5) +
+  annotate("text", x = 0.025, y = -0.10, label = "Increasing MMR", size = 2.5) +
+  theme(axis.line.y = element_line(arrow = grid::arrow(length = unit(0.3, "cm"),ends = "both", type = "closed")),
+        axis.line.x = element_line(arrow = grid::arrow(length = unit(0.3, "cm"),ends = "both", type = "closed")),
+        legend.position = "bottom", 
+        # legend.direction = "horizontal", legend.box = "vertical",
+        # legend.spacing.y = unit(0.1, "lines"),
+        panel.grid.major.x = element_line(),
+        panel.grid.major.y = element_line(),
+        text = element_text(size = 7),
+        axis.title.x = element_text(size=8),
+        axis.title.y = element_text(size=8),
+        axis.text.x = element_text(size=7),
+        axis.text.y = element_text(size=7),
+        legend.text = element_text(size = 8),
+        legend.margin=margin(t = -0.2, r = 0, b = -0.2, l = 0, unit = "cm"),
+        legend.spacing.y = unit(0, "mm")
+        )+
+  scale_color_manual(values = c("<1%" = "#80BC00",
+                                "1-2%" = "#009ADE",
+                                ">2%" = "#EF3842"))+
+  scale_x_continuous(limits = c(-0.152, 0.03))+
+  scale_y_continuous(limits = c(-0.1, 0.1))
+```
+\
+\
+Annualized rate of change in MMR in African Region, 2000–2015 and 2016–2020.
+
+\newpage
+```{r mmrmap} 
+mmr_2020_afr <- data_mmr %>% 
+    filter(IndicatorCode == "MDG_0000000026" &
+             Period==2020 &
+             ParentLocationCode == "AFR") %>% 
+  select(ISO_3_CODE = SpatialDimValueCode, Value = FactValueNumeric, ParentLocationCode)
+
+poly_data_afr <- poly %>% 
+  mutate(region = stringr::str_remove(WHO_REGION, "O$")) %>% 
+  filter(region=="AFR") %>%
+  left_join(mmr_2020_afr, by = "ISO_3_CODE")
+
+a <- ggplot() +
+    geom_sf(data = poly_data_afr, aes(fill = Value), color = "black") +
+    theme_void() +
+    # scale_fill_gradientn(colours = brewer.pal(9, "RdYlBu"))+
+  scale_fill_distiller(palette = "RdYlBu",
+                       limits = c(0,1200), 
+                       breaks = c(70, 300, 600, 900, 1200),
+                       name="",
+                       na.value = "grey50",
+                       direction = -1)+
+  labs(subtitle = "Maternal mortality ratio in African Region, 2020.",
+       fill = "")+
+  theme(
+    plot.subtitle = element_text(hjust =0.5, vjust=-9, size = 11, family="calibri"), 
+    plot.margin = margin(t = 0, r = 0.75, b = 1, l = 0, unit = "cm"),
+    legend.position = "bottom"
+    )
+```
+
+```{r numberyearsmap}
+mmr_roc <- data_mmr %>% 
+  filter(IndicatorCode == "MDG_0000000026" &
+           ParentLocationCode == "AFR") %>% 
+  filter(Period==2000 | Period==2020) %>% 
+  select(year = Period, iso3= SpatialDimValueCode, country = Location, mmr = FactValueNumeric) %>% 
+  arrange(year) %>% 
+  pivot_wider(names_from = year, values_from = mmr) %>% 
+  mutate(roc = (log(`2020`/`2000`)) / 20) %>% 
+  mutate(n_years = (log(70/`2020`)) / roc) %>% 
+  mutate(n_years = ifelse(`2020`<70, 0, n_years)) %>%
+  mutate(n_years_limit = ifelse(roc<0 & n_years>100, 100, n_years)) %>%
+  mutate(roc_pos = ifelse(roc>0, TRUE, FALSE))
+
+mmr_years <- poly %>% 
+  mutate(region = stringr::str_remove(WHO_REGION, "O$")) %>% 
+  filter(region=="AFR") %>%
+  left_join(
+    mmr_roc %>% select(iso3, country, roc, `2000`, `2020`, n_years, n_years_limit, roc_pos),
+    by = c("ISO_3_CODE" = "iso3")) 
+
+b<-ggplot() +
+  geom_sf(data = mmr_years , 
+          aes(fill=n_years_limit), color = "black") +
+  scale_fill_distiller(palette = "RdYlBu",
+                       limits = c(0,100), 
+                       breaks = c(0, 25, 50, 75, 100), 
+                       labels = c("0", "25", "50", "75", ">=100"),
+                       name="",
+                       na.value = "grey50",
+                       direction = -1)+
+  new_scale("fill") +
+  geom_sf(data = mmr_years %>% filter(roc_pos==TRUE),
+          aes(fill= roc_pos), color = "black", show.legend = TRUE) +
+  scale_fill_manual(values = "grey50", labels = c(str_wrap("Countries with increasing MMR, 2000-2020", 20)), name=" ")+
+  theme_void() +
+  labs(subtitle = str_wrap("Number of years needed to achieve SDG target given the rate of improvement since 2000.", 40))+
+  theme(
+    plot.subtitle = element_text(hjust =0.5, vjust=-130, size = 11, family="calibri"), 
+    plot.margin = margin(t = 0, r = 0, b = 1.5, l = 0.75, unit = "cm"),
+        legend.position = "bottom"
+    )
+
+patchwork::wrap_plots(a, b, ncol = 2)
+```
+\
+\
+```{r rmnchmap, fig.height=4.2, fig.width=8}
+
+rmnch = rmnch_est %>% filter(indicator=="rmnch") %>% filter(country==country_name)
+fill_var = "median"
+subtitle_name = "Median Percentage (%)"
+low_color = "#EF3842" 
+high_color = "#009ADE"
+    
+max <- plyr::round_any(max(rmnch[[fill_var]]), 10, f = ceiling)
+min <- plyr::round_any(min(rmnch[[fill_var]]), 10, f = floor)
+    
+gradient_breaks <- c(min, max)
+gradient_labs <- round(gradient_breaks)
+    
+    
+ggplot(rmnch) +
+  geom_sf(aes_string(fill = fill_var)) +
+  ggrepel::geom_label_repel(aes(label = region_, geometry = geometry), alpha = 0.8, size = 3, 
+                            stat = "sf_coordinates", min.segment.length = 0) +
+  scale_fill_gradient(
+    low = low_color,
+    high = high_color,
+    aesthetics = "fill"
+  ) +
+  # labs(subtitle = subtitle_name) +
+  theme(
+        legend.position = "right",
+        legend.title = element_blank(),
+        legend.text = element_text(size = 10),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        rect = element_blank(),
+        # plot.subtitle = element_text(hjust = 0.5, size = 10),
+        panel.grid.major = element_line(color = "white")
+      )
+```
+\
+Sub-national estimates of RMNCH service coverage from most recent household survey in `r country_name`, `r rmnch_year`.
+\
+\
+\raggedright
+\begin{footnotesize}
+\begin{spacing}{0.5}
+Note: These maps have been produced by WHO. The boundaries, colours, or other designations or denominations used in this map and the publication do not imply, on the part of the World Bank or WHO, any opinion or judgement on the legal status of any country, territory, city, or area or of its authorities, or any endorsement or acceptance of such boundaries or frontiers. Preliminary RMNCH estimates subject to change.
+\end{spacing}
+\end{footnotesize}
+\blandscape
+```{r mmr table, fig.align = 'center', out.height="520px"}
+knitr::include_graphics("input/MMR table_v4_pg1.pdf")
+```
+```{r mmr table2, fig.align = 'center', out.height="520px"}
+knitr::include_graphics("input/MMR table_v4_pg2.pdf")
+```
+\elandscape
+
+<!-- \centering -->
+<!-- \raggedright -->
+<!-- \ -->
+<!-- \ -->
+<!-- \large \textcolor{black}{Further Resources} -->
+<!-- \normalsize -->
+<!-- \ -->
+<!-- \ -->
+<!-- [\textcolor{websitecolor}{WHO Global country page}](`r paste0("https://www.who.int/countries/", country_iso)`) -->
+<!-- \ -->
+<!-- \ -->
+<!-- [\textcolor{websitecolor}{WHO Global website}](https://www.who.int/) -->
+<!-- \ -->
+<!-- \ -->
+<!-- \ -->
+<!-- \ -->
+<!-- \ -->
+<!-- \large \textcolor{black}{Data Sources} -->
+<!-- \normalsize -->
+```{r resources, warning=F, message=F, include = F}
+datasource <- data.frame(
+  type = c("Maternal Health Indicators",
+           "Causes of death",
+           "Sub-national estimates of RMNCH"),
+  website = c("https://www.who.int/data/gho/data/indicators",
+              "https://www.who.int/data/gho/data/themes/mortality-and-global-health-estimates/ghe-leading-causes-of-death",
+              "https://dhsprogram.com/"
+              ),
+  name = c("World Health Organization, The Global Health Observatory",
+           "World Health Organization, Global Health Estimates",
+           "The DHS Program, Demographic and Health Surveys")
+)
+library(officer)
+
+dt.ft <- flextable(data = datasource, col_keys = c("type", "name"))
+dt.ft <- compose(x = dt.ft, j = 2, value = as_paragraph(hyperlink_text(x = name, url = website)))
+dt.ft <- theme_zebra(dt.ft)
+dt.ft <- delete_part(dt.ft, part = "header")
+dt.ft <- hline(dt.ft, part = "all", border = fp_border(color = "gray"))
+dt.ft <- hline(dt.ft, part = "header", border = fp_border(color = "gray"))
+# dt.ft <- set_table_properties(dt.ft, width = 1, layout = "autofit")
+dt.ft <- width(dt.ft, j = 1, width = 2, unit = "in")
+dt.ft <- width(dt.ft, j = 2, width = 5, unit = "in")
+dt.ft <- color(dt.ft, j=2, color = "#0771a0", part = "body")
+dt.ft <- fontsize(dt.ft, i = 1:3, j = 1:2, size = 10, part = "body")
+dt.ft
+```

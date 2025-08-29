@@ -18,7 +18,7 @@ h3 {
 }
 
 h4 {
-    color: #A6228C;font-weight:600;
+    color: #white;font-weight:600;
 }
 
 h5 {
@@ -84,7 +84,7 @@ max-width: 65%
 .nav-tabs > li > a {
   color: #00205C;
   background-color: #c9ddf3;
-  font-size: 18px;
+ font-size: 18px;
 <!--  padding-left: 2in; -->
 <!--  padding-right: 2in; -->
 }

@@ -74,10 +74,11 @@ server = function(input, output, session) {
     }
     return(select_tbl)
   })
-  
+
   output$data_all <- downloadHandler(
     filename = function() {
-      paste("data", ".csv", sep = "")
+      paste0("data - ", input$pages, " - ", input$iso3le, ".csv")
+      # paste("data", ".csv", sep = "")
     },
     content = function(file) {
       write.csv(selected_data(), file, row.names = FALSE)
@@ -89,7 +90,8 @@ server = function(input, output, session) {
       if(input$pages == "Triple Billions Indicator Progress"){
         paste("triplebillion", ".png", sep = "")
       }else{
-        paste("graph", ".jpeg", sep = "")
+        # paste("graph", ".jpeg", sep = "")
+        paste0("graph - ", input$pages, " - ", input$iso3le, ".jpeg")
       }
     },
     content = function(file) {
@@ -103,7 +105,9 @@ server = function(input, output, session) {
   
   output$pdf_all <- downloadHandler(
     filename = function() {
-      paste("graph", ".pdf", sep = "")
+      # paste("graph", ".pdf", sep = "")
+      paste0("graph - ", input$pages, " - ", input$iso3le, ".pdf")
+      
     },
     content = function(file) {
       ggsave(selected_image(), filename = file, width = 16, height = 8, units = "in")
@@ -227,32 +231,8 @@ server = function(input, output, session) {
   
   output$lehe <- renderPlot({ legraph() })
   
-  # output$data_le <- downloadHandler(
-  #   filename = function() {
-  #     paste("le", ".csv", sep = "")
-  #   },
-  #   content = function(file) {
-  #     write.csv(ledata(), file, row.names = FALSE)
-  #   }
-  # )
-  # 
-  # output$jpeg_le <- downloadHandler(
-  #   filename = function() {
-  #     paste("le", ".jpeg", sep = "")
-  #   },
-  #   content = function(file) {
-  #     ggsave(legraph_pdf(), filename = file, width = 16, height = 8, units = "in", dpi = 100)
-  #   }
-  #   )
-  # 
-  # output$pdf_le <- downloadHandler(
-  #   filename = function() {
-  #     paste("le", ".pdf", sep = "")
-  #   },
-  #   content = function(file) {
-  #     ggsave(legraph_pdf(), filename = file, width = 16, height = 8, units = "in")
-  #   }
-  # )
+
+  
 
   # Top 5 causes life expectancy
   codiso3data <- reactive({
@@ -734,32 +714,6 @@ server = function(input, output, session) {
 
   })
   
-  # output$data_lecalc <- downloadHandler(
-  #   filename = function() {
-  #     paste("life_expectancy_calculation", ".xlsx", sep = "")
-  #   },
-  #   content = function(file) {
-  #     write.xlsx(list("life_expect" = lecalc_data(), "cause_of_death" = codiso3data()), file = file)
-  #   }
-  # )
-  # 
-  # output$jpeg_lecalc <- downloadHandler(
-  #   filename = function() {
-  #     paste("life_expectancy_calculation", ".jpeg", sep = "")
-  #   },
-  #   content = function(file) {
-  #     ggsave(lecalc_barline_pdf(), filename = file, width = 15, height = 8, units = "in", dpi = 100)
-  #   }
-  # )
-  # 
-  # output$pdf_lecalc <- downloadHandler(
-  #   filename = function() {
-  #     paste("life_expectancy_calculation", ".pdf", sep = "")
-  #   },
-  #   content = function(file) {
-  #     ggsave(lecalc_barline_pdf(), filename = file, width = 15, height = 8, units = "in")
-  #   }
-  # )
   
   
   # Life expectancy Decomposition
@@ -987,32 +941,6 @@ server = function(input, output, session) {
   
   output$decomp <- renderPlot({ decomp_graph() }) %>% bindCache(input$iso3le)
   
-  # output$data_decomp <- downloadHandler(
-  #   filename = function() {
-  #     paste("life_expectancy_decomp_country", ".csv", sep = "")
-  #   },
-  #   content = function(file) {
-  #     write.csv(decomp_data() %>% select(sex, cause = name, contribution_to_change_in_life_expectancy_in_years = value), file, row.names = FALSE)
-  #   }
-  # )
-  # 
-  # output$jpeg_decomp <- downloadHandler(
-  #   filename = function() {
-  #     paste("life_expectancy_decomp_country", ".jpeg", sep = "")
-  #   },
-  #   content = function(file) {
-  #     ggsave(decomp_graph_pdf(), filename = file, width = 15, height = 8, units = "in", dpi = 100)
-  #   }
-  # )
-  # 
-  # output$pdf_decomp <- downloadHandler(
-  #   filename = function() {
-  #     paste("life_expectancy_decomp_country", ".pdf", sep = "")
-  #   },
-  #   content = function(file) {
-  #     ggsave(decomp_graph_pdf(), filename = file, width = 15, height = 8, units = "in")
-  #   }
-  # )
   
   
   # Life expectancy Decomposition over time
@@ -1205,32 +1133,6 @@ server = function(input, output, session) {
   
   output$decomp_time <- renderPlot({ decomp_time_graph() }) %>% bindCache(input$iso3le, input$sex_decomptime)
   
-  # output$data_decomp_time <- downloadHandler(
-  #   filename = function() {
-  #     paste("life_expectancy_decomp_country_time", ".csv", sep = "")
-  #   },
-  #   content = function(file) {
-  #     write.csv(decomp_data_time() %>% select(sex, year, cause = name, contribution_to_change_in_life_expectancy_in_years = value), file, row.names = FALSE)
-  #   }
-  # )
-  # 
-  # output$jpeg_decomp_time <- downloadHandler(
-  #   filename = function() {
-  #     paste("life_expectancy_decomp_country_time", ".jpeg", sep = "")
-  #   },
-  #   content = function(file) {
-  #     ggsave(decomp_time_graph(), filename = file, width = 15, height = 10, units = "in", dpi = 100)
-  #   }
-  # )
-  # 
-  # output$pdf_decomp_time <- downloadHandler(
-  #   filename = function() {
-  #     paste("life_expectancy_decomp_country_time", ".pdf", sep = "")
-  #   },
-  #   content = function(file) {
-  #     ggsave(decomp_time_graph(), filename = file, width = 15, height = 10, units = "in")
-  #   }
-  # )
   
   
   # Arrow
@@ -1355,32 +1257,7 @@ server = function(input, output, session) {
   
   output$codrank <- renderPlot({ codrank_graph() })
   
-  # output$data_arrow <- downloadHandler(
-  #   filename = function() {
-  #     paste("codrankdata", ".csv", sep = "")
-  #   },
-  #   content = function(file) {
-  #     write.csv(codrank_data(), file, row.names = FALSE)
-  #   }
-  # )
-  # 
-  # output$jpeg_arrow <- downloadHandler(
-  #   filename = function() {
-  #     paste("codrank", ".jpeg", sep = "")
-  #   },
-  #   content = function(file) {
-  #     ggsave(codrank_graph_pdf(), filename = file, width = 15, height = 8, units = "in", dpi = 100)
-  #   }
-  # )
-  # 
-  # output$pdf_arrow <- downloadHandler(
-  #   filename = function() {
-  #     paste("codrank", ".pdf", sep = "")
-  #   },
-  #   content = function(file) {
-  #     ggsave(codrank_graph_pdf(), filename = file, width = 15, height = 8, units = "in")
-  #   }
-  # )
+  
   
   
   # Treemap
@@ -1447,32 +1324,7 @@ server = function(input, output, session) {
   
   output$treemap <- renderPlot({ tree_graph() })
   
-  # output$data_treemap <- downloadHandler(
-  #   filename = function() {
-  #     paste("treemapdata", ".csv", sep = "")
-  #   },
-  #   content = function(file) {
-  #     write.csv(data_tree_csv(), file, row.names = FALSE)
-  #   }
-  # )
-  # 
-  # output$jpeg_treemap <- downloadHandler(
-  #   filename = function() {
-  #     paste("treemap", ".jpeg", sep = "")
-  #   },
-  #   content = function(file) {
-  #     ggsave(tree_graph_pdf(), filename = file, width = 15, height = 8, units = "in", dpi = 100)
-  #   }
-  # )
-  # 
-  # output$pdf_treemap <- downloadHandler(
-  #   filename = function() {
-  #     paste("treemap", ".pdf", sep = "")
-  #   },
-  #   content = function(file) {
-  #     ggsave(tree_graph_pdf(), filename = file, width = 15, height = 8, units = "in")
-  #   }
-  # )
+  
   
   
   ## UHC Circle graph
@@ -1678,32 +1530,7 @@ server = function(input, output, session) {
       scale_y_continuous(limits = c(-1,2.5))
   })
   
-  # output$data_sdgtable <- downloadHandler(
-  #   filename = function() {
-  #     paste("triplebillion_table_data", ".csv", sep = "")
-  #   },
-  #   content = function(file) {
-  #     write.csv(datatablesdg(), file, row.names = FALSE)
-  #   }
-  # )
-  # 
-  # output$jpeg_sdgtable <- downloadHandler(
-  #   filename = function() {
-  #     paste("triplebillion", ".png", sep = "")
-  #   },
-  #   content = function(file) {
-  #     save_as_image(tablesdg(), path = file, webshot = "webshot")
-  #   }
-  # )
   
-  # output$pdf_sdgtable <- downloadHandler(
-  #   filename = function() {
-  #     paste("triplebillion", ".pdf", sep = "")
-  #   },
-  #   content = function(file) {
-  #     save_as_image(autofit(tablesdg()), path = file, webshot = "webshot")
-  #   }
-  # )
   
   
   ## Triple Billions Contibutions
@@ -1817,43 +1644,12 @@ server = function(input, output, session) {
     
   })
   
-  # output$data_TBcontrib <- downloadHandler(
-  #   filename = function() {
-  #     paste("TB_contributions", ".csv", sep = "")
-  #   },
-  #   content = function(file) {
-  #     write.csv(TBcontrib_data()$plt_dat, file, row.names = FALSE)
-  #   }
-  # )
-  # 
-  # output$jpeg_TBcontrib <- downloadHandler(
-  #   filename = function() {
-  #     paste("TB_contributions", ".jpeg", sep = "")
-  #   },
-  #   content = function(file) {
-  #     ggsave(
-  #       TBcontrib_data()$plt + 
-  #         labs(title = paste0(input$TB, " indicator contributions to the Triple Billions, ", input$iso3le, ", 2018-2030.")
-  #              ), filename = file, width = 15, height = 8, units = "in", dpi = 100)
-  #   }
-  # )
-  # 
-  # output$pdf_TBcontrib <- downloadHandler(
-  #   filename = function() {
-  #     paste("TB_contributions", ".pdf", sep = "")
-  #   },
-  #   content = function(file) {
-  #     ggsave(
-  #       TBcontrib_data()$plt + 
-  #         labs(title = paste0(input$TB, " indicator contributions to the Triple Billions, ", input$iso3le, ", 2018-2030.")
-  #              ), filename = file, width = 15, height = 8, units = "in")
-  #   }
-  # )
+
   
   
   ## Generate report
-  reactive_filename_mmr <- reactive({
-    paste0("country-report-", input$iso3le, ".pdf")
+  reactive_filename <- reactive({
+    paste0("who-country-report-", input$iso3le, ".pdf")
   })
   
   reactive_country_name <- reactive({
@@ -1863,10 +1659,11 @@ server = function(input, output, session) {
   rmd_file <- reactive({
     if(input$iso3le=="Global"){
       "rmd/country-report-global.Rmd"
+      
       } else if(input$iso3le %in% c("African Region", "Eastern Mediterranean Region", "European Region", 
                                    "Region of the Americas", "South-East Asia Region", "Western Pacific Region")){
       "rmd/country-report-regional.Rmd"
-    } else {
+        } else {
       "rmd/country-report.Rmd"
     }
   })
@@ -1874,7 +1671,7 @@ server = function(input, output, session) {
   output$download_button <- downloadHandler(
     
     filename = function() {
-      reactive_filename_mmr()
+      reactive_filename()
     },
     content = function(file) {
       params <- list(
@@ -1883,10 +1680,9 @@ server = function(input, output, session) {
         cod19 = cod19,
         cod00 = cod00,
         top10 = top10,
-        cod_decomp_time = cod_decomp_time,
         data_pyramid = data_pyramid,
-        ledata = data %>% filter(GHOcode=="WHOSIS_000002" | GHOcode=="WHOSIS_000001"),
-        sdg_data = filtered_indicator_values,
+        data = data,
+        filtered_indicator_values = filtered_indicator_values,
         all_plt_dat = all_plt_dat,
         inds_all = inds_all,
         ind_labels = ind_labels,
@@ -1909,10 +1705,50 @@ server = function(input, output, session) {
     }
   )
   
+  rmd_file_new <- reactive({"rmd/country-report_eb_version.Rmd"})
+  
+  reactive_filename_new <- reactive({
+    paste0("who-country-report-v2-", input$iso3le, ".pdf")
+  })
+  
+  output$download_button_new <- downloadHandler(
+    
+    filename = function() {
+      reactive_filename_new()
+    },
+    content = function(file) {
+      params <- list(
+        country = reactive_country_name(),
+        country_iso = country_table %>% filter(Title == input$iso3le) %>% pull(Code),
+        filtered_indicator_values = filtered_indicator_values,
+        all_plt_dat = all_plt_dat,
+        inds_all = inds_all,
+        ind_labels = ind_labels,
+        config_all = config_all,
+        country_table = country_table,
+        country_ref = country_ref
+      )
+      
+      id <- showNotification(
+        "Rendering pdf...", 
+        duration = NULL, 
+        closeButton = FALSE
+      )
+      on.exit(removeNotification(id), add = TRUE)
+      
+      rmarkdown::render(rmd_file_new(), 
+                        output_file = file,
+                        params = params,
+                        envir = new.env(parent = globalenv())
+      )
+    }
+  )
+  
       
   #################################################################################################################
-  
-  # Map
+  ####  Map  ####
+  #################################################################################################################
+  #
   # observe({
   #   x <- data %>%
   #     filter(name==input$ind) %>%
@@ -1956,25 +1792,22 @@ server = function(input, output, session) {
   #     hc_loading()
   # })
   
+  
   #################################################################################################################
   ####  Indicator Table  ####
   #################################################################################################################
   
   observe({
-    x <- annexdata3 %>%
+    x <- annexdata %>%
       filter(name %in% input$indtab2) %>%
       filter(region_name %in% input$regtab2) %>%
       distinct(country) %>% pull()
-
-    # Can use character(0) to remove all choices
-    # if (is.null(x))
-    #   x <- character(0)
 
     updateVirtualSelect("isotab2", label = "Select Country:", choices = x, selected = x)
   })
   
   observe({
-    x <- annexdata3 %>%
+    x <- annexdata %>%
       filter(name %in% input$indtab2) %>% 
       filter(region_name %in% input$regtab2) %>% 
       distinct(year) %>% arrange(desc(year)) %>% mutate(year = as.character(year)) %>%  pull()
@@ -1984,7 +1817,7 @@ server = function(input, output, session) {
   })
   
   observe({
-    x <- annexdata3 %>%
+    x <- annexdata %>%
       filter(name %in% input$indtab2) %>% 
       filter(region_name %in% input$regtab2) %>% 
       distinct(sex) %>% pull()
@@ -1998,7 +1831,7 @@ server = function(input, output, session) {
   })
   
   observe({
-    x <- annexdata3 %>%
+    x <- annexdata %>%
       filter(name %in% input$indtab2) %>% 
       filter(region_name %in% input$regtab2) %>% 
       distinct(location) %>% pull()
@@ -2012,7 +1845,7 @@ server = function(input, output, session) {
   })
   
   tabledata <- reactive({
-    annexdata3 %>%
+    annexdata %>%
       filter(name %in% input$indtab2) %>% 
       filter(region_name %in% input$regtab2) %>% 
       filter(country %in% input$isotab2) %>%
@@ -2040,39 +1873,46 @@ server = function(input, output, session) {
                                  list(extend = 'csv'))))
   })
 
+  
   #################################################################################################################
   ####  Benchmarking  ####
   #################################################################################################################
   
   ## Life expectancy decomp by region
+  iso3_selected <- reactive({
+    all_countries_table %>%
+      filter(country %in% c(input$iso3decomp_bench)) %>% 
+      arrange(country) %>% 
+      select(iso3) %>% 
+      pull()
+  })
+  
   le_data_decomp_bench <- reactive({
-    
     data %>% 
       filter(GHOcode=="WHOSIS_000001" & 
                year %in% c(2000, 2021) &
-               country %in% c(input$iso3decomp_bench) &
+               iso3 %in% iso3_selected() &
                sex==input$sexdecomp_bench) %>% 
       select(country, iso3, year, value)
-    
   })
   
   decomp_data_bench <- reactive({
     
-    iso_filter = country_table %>% filter(Title %in% c(input$iso3decomp_bench)) %>% select(Code) %>% pull()
-    
     test21 <- cod19 %>% 
       filter(FLAG_LEVEL==2 & DIM_AGEGROUP_CODE!="TOTAL") %>% 
-      filter(DIM_COUNTRY_CODE %in% iso_filter & sex==input$sexdecomp_bench) %>% 
+      filter(DIM_COUNTRY_CODE %in% iso3_selected() & sex==input$sexdecomp_bench) %>% 
       mutate(rate = VAL_DEATHS_COUNT_NUMERIC/ATTR_POPULATION_NUMERIC) %>% 
       select(country, iso3 = DIM_COUNTRY_CODE, age, DIM_GHECAUSE_TITLE, rate) %>% 
-      pivot_wider(names_from = DIM_GHECAUSE_TITLE, values_from = rate) 
+      pivot_wider(names_from = DIM_GHECAUSE_TITLE, values_from = rate) %>% 
+      arrange(country, age)
     
     test00 <- cod00 %>% 
       filter(FLAG_LEVEL==2 & DIM_AGEGROUP_CODE!="TOTAL") %>% 
-      filter(DIM_COUNTRY_CODE %in% iso_filter & sex==input$sexdecomp_bench) %>% 
+      filter(DIM_COUNTRY_CODE %in% iso3_selected() & sex==input$sexdecomp_bench) %>% 
       mutate(rate = VAL_DEATHS_COUNT_NUMERIC/ATTR_POPULATION_NUMERIC) %>% 
       select(country, iso3 = DIM_COUNTRY_CODE, age, DIM_GHECAUSE_TITLE, rate) %>% 
-      pivot_wider(names_from = DIM_GHECAUSE_TITLE, values_from = rate) 
+      pivot_wider(names_from = DIM_GHECAUSE_TITLE, values_from = rate) %>% 
+      arrange(country, age)
     
     le <- le_data_decomp_bench()
     
@@ -2084,7 +1924,7 @@ server = function(input, output, session) {
     
     for(i in input$iso3decomp_bench){
       
-      j = country_table %>% filter(Title==i) %>% select(Code) %>% pull()
+      j = all_countries_table %>% filter(country==i) %>% select(iso3) %>% pull()
       
       test21_ <- test21 %>% 
         filter(iso3==j) %>% 
@@ -2114,7 +1954,7 @@ server = function(input, output, session) {
                                 symmetrical = TRUE,
                                 direction = "up") 
       
-      B_ <- as.data.frame(matrix(B, nrow = 19, ncol = 23)) %>% 
+      B_ <- as.data.frame(matrix(B, nrow = dims[1], ncol = dims[2])) %>% 
         summarise_all(list(sum))
       
       colnames(B_) <- names
@@ -2131,8 +1971,8 @@ server = function(input, output, session) {
       le_end <- leold + sum(B__ %>% filter(value>=0) %>% pull(value))
       
       lecomp2 <- rbind(
-        data.frame(country = i, name = "Test", value = -100),
-        data.frame(country = i, name = "Test", value = 100),
+        data.frame(country = i, name = "Test", value = -1000),
+        data.frame(country = i, name = "Test", value = 1000),
         B__
       ) %>% 
         arrange(value) %>% 
@@ -2174,21 +2014,17 @@ server = function(input, output, session) {
         data = le,
         aes(xmin = country.id-0.5, xmax = country.id+0.5, y=value, color = year), size = 1, show.legend = F
       ) +
-      # geom_text(
-      #   data = le,
-      #   aes(label = paste0(year, ": ", value), y=value, x = country), hjust = -1
-      # ) +
       coord_flip() +
       ylab("Life expectancy at birth (years)")+xlab("")+
       theme_classic()+
       theme(legend.position = "bottom",
-            axis.text.x=element_text(size=18),
-            axis.title.y =element_text(size=18),
-            axis.text.y=element_text(size=18),
+            axis.text.x=element_text(size=16),
+            axis.title.y =element_text(size=16),
+            axis.text.y=element_text(size=16),
             legend.title = element_blank(),
-            legend.text = element_text(size = 18))+
+            legend.text = element_text(size = 14))+
       scale_fill_manual(values = customcolors) +
-      guides(fill=guide_legend(ncol=3))
+      guides(fill=guide_legend(ncol=4))
     
   })
   
@@ -2225,7 +2061,7 @@ server = function(input, output, session) {
   ## LE graph comparative
   
   observe({
-    x <- annexdata3 %>%
+    x <- annexdata %>%
       filter(name==input$indgraph) %>%
       arrange(sort_country, country) %>% 
       distinct(country) %>%
@@ -2235,7 +2071,7 @@ server = function(input, output, session) {
   })
   
   observe({
-    x <- annexdata3 %>%
+    x <- annexdata %>%
       filter(name==input$indgraph & country %in% input$iso3graph) %>% 
       distinct(year) %>% 
       arrange(desc(year)) %>% 
@@ -2247,7 +2083,7 @@ server = function(input, output, session) {
   })
   
   observe({
-    x <- annexdata3 %>%
+    x <- annexdata %>%
       filter(name==input$indgraph & country %in% input$iso3graph) %>% 
       distinct(sex) %>% 
       arrange(sex) %>% 
@@ -2263,7 +2099,7 @@ server = function(input, output, session) {
   
   legraphdata <- reactive({
     if(input$indgraph %in% locinclude_ind){
-      annexdata3 %>%
+      annexdata %>%
         filter(name==input$indgraph &
                  country %in% input$iso3graph &
                  year %in% as.numeric(input$yeargraph) &
@@ -2273,7 +2109,7 @@ server = function(input, output, session) {
         mutate(value = round(value, digits = 1)) %>%
         select(country, year, sex, name, value)
     }else{
-    annexdata3 %>%
+    annexdata %>%
         filter(name==input$indgraph &
                  country %in% input$iso3graph &
                  year %in% as.numeric(input$yeargraph) &
@@ -2302,7 +2138,7 @@ server = function(input, output, session) {
                #   )
                # )
              #)
-    ) %>% #, animation = FALSE
+    ) %>% 
       hc_xAxis(title = list(text = "")) %>%
       hc_yAxis(title = list(text= ""))  %>% 
       hc_title(text=ind) %>%
@@ -2571,33 +2407,6 @@ server = function(input, output, session) {
       )
   })
   
-  # output$codrankcomp_leg <- renderPlot({
-  #   lev1 <- cod19 %>%
-  #     filter(FLAG_LEVEL == 1) %>%
-  #     select(FLAG_CAUSEGROUP, lev1_name = DIM_GHECAUSE_TITLE) %>%
-  #     unique()
-  #   
-  #   data_arrow <- codrankdatacomp1() %>%
-  #     group_by(region) %>% 
-  #     mutate(prop_deaths = VAL_DEATHS_COUNT_NUMERIC / sum(VAL_DEATHS_COUNT_NUMERIC),
-  #            rank_deaths = rank(-prop_deaths, ties.method = "first")) %>%
-  #     filter(rank_deaths < 11) %>%
-  #     left_join(lev1, by = "FLAG_CAUSEGROUP")
-  #   
-  #   data_arrow$lev1_name <- factor(data_arrow$lev1_name, levels = lev1_causes)
-  #   
-  #   leg_ <- ggplot(data_arrow, aes(x=1, y=-rank_deaths)) +
-  #     geom_label(aes(label = paste0(rep(" ", 57), collapse = ""), fill = lev1_name), hjust=0.5, alpha=0.3, size=7, show.legend = T) +
-  #     geom_label(aes(label = paste0(rank_deaths, ". ", DIM_GHECAUSE_TITLE), fill = lev1_name), hjust=0.5, alpha=0, size=7, label.size = NA, show.legend = F) +
-  #     scale_fill_manual(values = c("#F26829", "#009ADE", "#80BC00"))+
-  #     theme_void() +
-  #     labs(color = "", fill = "") +
-  #     # scale_x_continuous(limits=c(0.95, 1.18)) +
-  #     theme(plot.margin =  margin(0, 0, 0, 0, "cm")) 
-  #   
-  #   legend_ <- cowplot::get_legend(leg_)
-  #   plot(legend_)
-  # })
   
   output$codrankcomp1 <- renderPlot({ codrankcomp1_graph() })
   
@@ -2642,7 +2451,7 @@ server = function(input, output, session) {
   
   ## Comparative treemap
   comp1data <- reactive({
-    if(input$yeartreecomp1==2021){   ############ CHANGE BACK TO 2021
+    if(input$yeartreecomp1==2021){
       if(input$iso3compt1=="Global"){
         
         cod19 %>%
@@ -2698,7 +2507,7 @@ server = function(input, output, session) {
     # }
   })
   comp1deaths <- reactive({
-    if(input$yeartreecomp1==2021){  ############ CHANGE BACK TO 2021
+    if(input$yeartreecomp1==2021){
       if(input$iso3compt1=="Global"){
         
         cod19 %>%
@@ -2752,7 +2561,7 @@ server = function(input, output, session) {
   })
   
   comp2data <- reactive({
-    if(input$yeartreecomp2==2021){ ############ CHANGE BACK TO 2021
+    if(input$yeartreecomp2==2021){
       if(input$iso3compt2=="Global"){
         
         cod19 %>%
@@ -2813,10 +2622,10 @@ server = function(input, output, session) {
         
       }
     }
-    # }
+
   })
   comp2deaths <- reactive({
-    if(input$yeartreecomp2==2021){ ############ CHANGE BACK TO 2021
+    if(input$yeartreecomp2==2021){ 
       if(input$iso3compt2=="Global"){
         cod19 %>%
           filter(FLAG_LEVEL == 0 & sex==input$sextreecomp2 & DIM_AGEGROUP_CODE=="TOTAL") %>%
@@ -3406,10 +3215,6 @@ server = function(input, output, session) {
       ggplot(aes(x = year, y = rev(rank), group = country, color = type)) +
       ggbump::geom_bump(size = 1.5, show.legend = F, alpha = 0.7) +
       geom_point(size = 2, show.legend = F, alpha = 0.8) +
-      # geom_point(data = df_ %>% filter(year==2001), 
-      #            aes(x = year, y = rev(rank), color = type), 
-      #            size = 10, show.legend = F, alpha = 0.8, shape = "\u2192", hjust = 1) +
-      # scale_x_continuous(labels = c("2000", "2021"), breaks = c(2000, 2001))+
       scale_color_manual(
         values = c("decrease" = "#80BC00",
                    "increase" = "#F26829",
@@ -3471,7 +3276,7 @@ server = function(input, output, session) {
   
   
   #################################################################################################################
-  
+  ##### Maternal Mortality ########
   #################################################################################################################
   
   # Map of MMR 
@@ -3894,22 +3699,24 @@ server = function(input, output, session) {
       mutate(text_ = str_extract(scenario, "(?<=\\().+")) %>% 
       mutate(text = ifelse(str_detect(text_, "percentile"), 
                            paste0(round(mmr, digits = 0), " (Best ", text_),
-                           paste0(round(mmr, digits = 0), " (", text_))) %>% 
-      filter(text_!="60th percentile)" & text_!="70th percentile)" & text_!="80th percentile)") %>% 
+                           paste0(round(mmr, digits = 0), " (", text_))) %>%
+      mutate(text_ = str_remove(text_, "\\)$")) %>% 
+      filter(text_!="60th percentile" & text_!="70th percentile" & text_!="80th percentile") %>% 
       mutate(country_name = country)
     
     mmr_region__ %>% 
-      rbind(final %>% filter(text_ == "Current rate of change)") %>% 
-              select(year, mmr, WHO.region = country)) %>% 
       arrange(WHO.region, year) %>% 
       hchart('line', hcaes(x = year, y = mmr, group = WHO.region)
       ) %>% 
-      hc_add_series(final %>% filter(text_=="90th percentile)"), 
-                    type = "line", 
-                    hcaes(x = year, y = mmr), name = paste(input$iso3cp, "trajectory using best 90th percentile"), color = "green") %>%
-      hc_add_series(final %>% filter(text_=="50th percentile)"), 
-                    type = "line", 
-                    hcaes(x = year, y = mmr), name = paste(input$iso3cp, "trajectory using best 50th percentile"), color = "orange") %>%
+      hc_add_series(final %>% 
+                      mutate(text = paste0(input$iso3cp, " trajectory using ", text_)), 
+                    type = "line", hcaes(x = year, y = mmr, group = text)) %>% 
+      # hc_add_series(final %>% filter(text_=="90th percentile)"), 
+      #               type = "line", 
+      #               hcaes(x = year, y = mmr), name = paste(input$iso3cp, "trajectory using best 90th percentile"), color = "green") %>%
+      # hc_add_series(final %>% filter(text_=="50th percentile)"), 
+      #               type = "line", 
+      #               hcaes(x = year, y = mmr), name = paste(input$iso3cp, "trajectory using best 50th percentile"), color = "orange") %>%
       hc_xAxis(title = list(text = ""),
                plotLines = list(
                  list(color = "#252525",
@@ -4007,7 +3814,7 @@ server = function(input, output, session) {
     paste0("mmr-country-report-", input$iso3cp, ".pdf")
   })
   
-  reactive_country_name <- reactive({
+  reactive_country_name_mmr <- reactive({
     paste0(input$iso3cp)
   })
   
@@ -4018,12 +3825,19 @@ server = function(input, output, session) {
     },
     content = function(file) {
       params <- list(
-        country_name = reactive_country_name(),
-        country_iso = country_table %>% filter(Title == input$iso3cp) %>% pull(Code)
+        country_name = reactive_country_name_mmr(),
+        country_iso = country_table %>% filter(Title == input$iso3cp) %>% pull(Code),
+        cod19 = cod19,
+        cod00 = cod00,
+        ledata = data %>% filter(GHOcode=="WHOSIS_000001"),
+        country_table = country_table,
+        data_mmr = data_mmr,
+        mmr_region = mmr_region,
+        final_ = final_
       )
       
       id <- showNotification(
-        "Rendering pdf...", 
+        "Rendering MMR pdf...", 
         duration = NULL, 
         closeButton = FALSE
       )

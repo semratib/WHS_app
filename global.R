@@ -10,9 +10,6 @@ library(bslib)
 library(tidyverse)
 library(whoville)
 library(highcharter)
-library(shiny)
-library(shinycssloaders)
-library(gifski)
 library(cowplot)
 library(demCore)
 library(data.table)
@@ -23,31 +20,23 @@ library(DT)
 library(ggfittext)
 library(treemap)
 library(patchwork)
-#library(rgdal)
-#library(geojsonio)
-#library(kableExtra)
-#options(knitr.kable.NA = '')
 library(flextable)
 library(DemoDecomp)
 library(ggbump)
 library(openxlsx)
 library(patchwork)
 library(ggnewscale)
-# library(webshot)
-#library(gt)
+library(rlist)
+
+
 
 source("rmd/graph_functions.R")
 
-load(file = "data_2021v2.rda")
-load(file = "sdgdata_new.rda")
+# load(file = "data_2021v2.rda")
+# load(file = "sdgdata_new.rda")
+load(file = "datasets.rda")
 set.seed(1)
 
-# customcolors <- c("#1C99DB", "#85C122", "#F2662A", "#F2A60D", "#A51C87", "#5F3B8B" ,
-#                   "#EEDCD5", "#00FCDE", "#CA00FB", "#FB0D94", "#7D2E16", "#1653FB",
-#                   "#0D6053", "#FC000D", "#22FE2A", "#86760D", "#FD0DE4", "#FABDFF", 
-#                   "#F1E30D", "#A9EBFF", "#FE97B5", "#845D6E", "#B3F0BB", "#B083FE",
-#                   "#22E989", "#AB0035", "#167A26", "#FBBB98", "#E673EE", "#EBE695")
-# customcolors = createPalette(30,  c("#009ADE", "#80BC00", "#F26829", "#F4A81D", "#A6228C", "#5B2C86"))
 
 customcolors <- c("#1C99DB", "#85C122", "#F2A60D", "#A51C87", "#A200FF", "#EFDDDA", 
                   "#00FCDE" ,"#A21C16", "#226542" ,"#7D4F26" ,"#D199FF" ,"#564970",
@@ -55,9 +44,8 @@ customcolors <- c("#1C99DB", "#85C122", "#F2A60D", "#A51C87", "#A200FF", "#EFDDD
                   "#CABB73", "#22E989", "#FF781C", "#FB356A" ,"#4740AD" ,"#F9BBF1" ,
                   "#AA00BD", "#F83DCB", "#167F8B")
 
-# cod00_ <- read.csv("input/cod2000_byage.csv")
 
-cod_decomp_time <- read.csv("input/level1_byage_sex_year.csv") %>% 
+cod_decomp_time <- read.csv("input/level1_byage_sex_year_20240920.csv") %>% 
   mutate(sex = case_when(
     DIM_SEX_CODE=="TOTAL" ~ "Both sexes", 
     DIM_SEX_CODE=="FEMALE" ~ "Female", 
@@ -81,7 +69,7 @@ start_year <- c("2000", "2005", "2010", "2015", "2019")
 end_year <- c("2005", "2010", "2015", "2019", "2021")
 years_decomp <- data.frame(start_year, end_year)
 
-data_pyramid <- read.csv("input/data_pyramid.csv") %>% 
+data_pyramid <- read.csv("input/data_pyramid_20240930.csv") %>% 
   mutate(sex = case_when(
     DIM_SEX_CODE=="TOTAL" ~ "Both sexes", 
     DIM_SEX_CODE=="FEMALE" ~ "Female", 
@@ -130,7 +118,17 @@ iso3le <- data %>%
   pull()
 
 
-iso3cod <- cod19 %>% distinct(country) %>% pull()
+iso3cod <- cod19 %>% distinct(country) %>% arrange(country) %>% pull()
+
+all_countries <- rlist::list.common(
+  iso3le,
+  iso3cod
+  )
+
+all_countries_table <- cod19 %>% 
+  filter(country %in% all_countries) %>% 
+  distinct(iso3 = DIM_COUNTRY_CODE, country, region, region2)
+
 
 top10 <- top10 %>% 
   left_join(
@@ -169,8 +167,9 @@ aggregates may include country and area estimates that are not individually repo
 The notation “-” indicates that data are not applicable or not available.")
 
 
-# Filter table
-annexdata3 <- data %>% 
+# Create filter selections from data
+
+annexdata <- data %>% 
   mutate(sex = ifelse(sex==" " | is.na(sex), "-", sex)) %>%
   mutate(location = case_when(location=="RESIDENCEAREATYPE_RUR" ~ "Rural",
                               location=="RESIDENCEAREATYPE_URB" ~ "Urban",
@@ -178,15 +177,14 @@ annexdata3 <- data %>%
   mutate(location = ifelse(location==" " | is.na(location), "-", location)) %>% 
   select(name, country, region_name, country, year, sex, location, stringvalue, value, sort_country)
 
-
-regions2 <- annexdata3 %>% arrange(region_name) %>% distinct(region_name) %>% pull()
+regions2 <- annexdata %>% arrange(region_name) %>% distinct(region_name) %>% pull()
 isoreg2 <- data %>% arrange(desc(geotype), country) %>% distinct(country) %>% pull()
 
-ind <- annexdata3 %>% distinct(name) %>% pull()
-yeartab <- annexdata3 %>% distinct(year) %>% arrange(desc(year)) %>% pull()
+ind <- annexdata %>% distinct(name) %>% pull()
+yeartab <- annexdata %>% distinct(year) %>% arrange(desc(year)) %>% pull()
 
 
-### HEATMAP
+# Create data for Heatmap -------------------------------------------------------------------------------------
 
 # Global
 globalheat <- cod19 %>%
@@ -253,32 +251,6 @@ heatdata <- rbind(globalheat, regionheat, countryheat)
 rm(globalheat, regionheat, countryheat)
 
 
-# Heatmap version 2
-
-# globalheatv2 <- cod19 %>%
-#   filter(FLAG_LEVEL %in% c(1,2,3)) %>%
-#   filter(DIM_AGEGROUP_CODE==101) %>% 
-#   mutate(country = "Global") %>%
-#   select(country, sex, FLAG_LEVEL, DIM_GHECAUSE_TITLE, VAL_DEATHS_COUNT_NUMERIC, ATTR_POPULATION_NUMERIC) %>% 
-#   group_by(country, sex, FLAG_LEVEL, DIM_GHECAUSE_TITLE) %>% 
-#   summarise(
-#     deaths = sum(VAL_DEATHS_COUNT_NUMERIC),
-#     pop = sum(ATTR_POPULATION_NUMERIC)
-#     ) %>% 
-#   ungroup() %>%
-#   mutate(mort_rate = round((deaths/pop)*100000, 1)) 
-# 
-# regionheatv2 <- cod19 %>%
-#   filter(FLAG_LEVEL %in% c(1,2,3)) %>%
-#   filter(DIM_AGEGROUP_CODE==101) %>% 
-#   select(country = region2, sex, FLAG_LEVEL, DIM_GHECAUSE_TITLE, VAL_DEATHS_COUNT_NUMERIC, ATTR_POPULATION_NUMERIC) %>% 
-#   group_by(country, sex, FLAG_LEVEL, DIM_GHECAUSE_TITLE) %>% 
-#   summarise(
-#     deaths = sum(VAL_DEATHS_COUNT_NUMERIC),
-#     pop = sum(ATTR_POPULATION_NUMERIC)
-#   ) %>% 
-#   ungroup() %>%
-#   mutate(mort_rate = round((deaths/pop)*100000, 1)) 
 
 countryheatv2_2021 <- cod19 %>%
   filter(FLAG_LEVEL %in% c(1,2,3)) %>%
@@ -295,45 +267,13 @@ countryheatv2_2000 <- cod00 %>%
          year = 2000)
 
 heatdatav2 <- rbind(countryheatv2_2021, countryheatv2_2000)
-# heatdatav2 <- rbind(globalheatv2, regionheatv2, countryheatv2)
 
 rm(countryheatv2_2021, countryheatv2_2000)
 
-# ## Testing bump chart
-# library(ggbump)
-# 
-# df_compare <- full_join(
-#   heatdatav2_year1 %>% select(rank1 = rank, country), 
-#   heatdatav2_year2 %>% select(rank2 = rank, country)) %>% 
-#   mutate(type = case_when(
-#     rank2<rank1 ~ "increase",
-#     rank2>rank1 ~ "decrease",
-#     rank2==rank1 ~ "same"
-#   ))
-# 
-# test <- df %>% 
-#   left_join(df_compare %>% select(country, type)) %>% 
-#   mutate(year = ifelse(year==2021, 2001, year))
-# test %>% 
-#   ggplot(aes(x = year, y = rev(rank), group = country, color = type)) +
-#   ggbump::geom_bump(size = 1.5, show.legend = F) +
-#   geom_point(size = 6, show.legend = F) +
-#   # geom_text(data = test %>% filter(year==2000),
-#   #           aes(x = year-0.1, y = rev(rank), 
-#   #               label = str_wrap(country, 30)),
-#   #           size = 4, color = "black") +
-#   # geom_text(data = test %>% filter(year==2001),
-#   #           aes(x = year+0.1, y = rev(rank), 
-#   #               label = str_wrap(country, 30)),
-#   #           size = 4, color = "black") +
-#   scale_x_continuous(labels = c("2000", "2021"), breaks = c(2000, 2001))+
-#   scale_color_manual(
-#     values = c("decrease" = "#80BC00",
-#                "increase" = "#EF3842",
-#                "same" = "#009ADE")
-#   )+ theme_void()
+
   
-#### 3B Contributions
+# Load 3B Contributions data ----------------------------------------------------------------------------------
+
 config_all <- config::get(
   file = "input/all.yml",
   config = Sys.getenv("USER")
@@ -372,16 +312,16 @@ all_plt_dat <- arrow::read_parquet("input/2024-03-26-10-06_summary.parquet") %>%
   ) 
 
 
-## Maternal Mortality
+# Load Maternal Mortality Data ----------------------------------------------------------------------------------
 
 rmnch_est <- read_sf("input/rmnch/map_estimates_rmnch_all_scaled_update.shp") %>% 
   st_drop_geometry() %>% 
-  # filter(iso3==country_iso) %>% 
   mutate(region_ = str_to_title(region)) %>% 
   mutate(width = round(upper - lower, digits = 1)) %>% 
   mutate(country =iso3_to_names(iso3)) %>% 
-  filter(country %in% c("Benin", "Burkina Faso", "Central African Republic", "Democratic Republic of the Congo", 
-                        "Guinea-Bissau", "Nigeria", "Rwanda", "Senegal", "Sierra Leone", "South Africa", "United Republic of Tanzania", "Zambia"))
+  filter(country %in% c("Benin", "Burkina Faso", "Central African Republic", "Democratic 
+                        Republic of the Congo", "Guinea-Bissau", "Nigeria", "Rwanda", "Senegal", 
+                        "Sierra Leone", "South Africa", "United Republic of Tanzania", "Zambia"))
 
 # test <- rmnch_est %>% filter(iso3=="NGA")
 # exportJson <- rjson::toJSON(test)
@@ -412,10 +352,6 @@ sdg_sort <- filtered_indicator_values %>% distinct(indicator_name, small_is_best
     ),
     small_is_best
   ))
-
-iso3le <- c("Global", "African Region", 
-            "Benin", "Burkina Faso", "Central African Republic", "Democratic Republic of the Congo", 
-            "Guinea-Bissau", "Nigeria", "Rwanda", "Senegal", "Sierra Leone", "South Africa", "United Republic of Tanzania", "Zambia")
 
 iso3afr <- data %>% filter(region_name=="African Region") %>% arrange(country) %>% distinct(country) %>% pull()
 iso3afr_mmr <- data_mmr %>% filter(IndicatorCode == "MDG_0000000026" & Period>=2000) %>% distinct(Location) %>% arrange(Location) %>% pull()
@@ -455,3 +391,21 @@ mmr_region__ <- rbind(mmr_region_, roc_region) %>%
   mutate(year = as.numeric(year)) %>% 
   rbind()
 
+
+
+# Country ref dataset for Rmd file -----------------------------------------------------------------------
+library(httr)
+library(jsonlite)
+
+# response <- GET("https://xmart-api-public-uat.who.int/REFMART/REF_COUNTRY")
+
+url <- paste0("https://xmart-api-public.who.int/DATA_/REF_COUNTRY")
+response <- GET(url)
+resultTxt <- content(response, "text")
+resultJson <- fromJSON(resultTxt, flatten = T)
+country_ref <- resultJson$value %>%
+  mutate(m49code = case_when(
+    CODE_ISO_NUMERIC<10 ~ paste0("00", CODE_ISO_NUMERIC),
+    CODE_ISO_NUMERIC>=10 & CODE_ISO_NUMERIC<=99 ~ paste0("0", CODE_ISO_NUMERIC),
+    TRUE ~ as.character(CODE_ISO_NUMERIC)
+  ))

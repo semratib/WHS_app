@@ -19,19 +19,21 @@ ui<-fluidPage(withMathJax(),
               # tags$head(tags$style(HTML(".nav li {width: 25%;}"))),
               
               titlePanel(title = div(h1("Global Health Indicators", style="font-size:34px;margin-bottom:10px"), 
-                                     h3("Data analytics platform by the Division of Data, Analytics and Delivery for Impact at WHO", style="font-size:20px")
-                                     # div(h4("Development version/Temporary internal use only", style="font-size:18px"))
+                                     h3("Data analytics platform by the Division of Data, Analytics and Delivery for Impact at WHO", style="font-size:20px"),
+                                     h4("Beta version - Internal testing only", style="font-size:18px")
                                      )
                          ),
                 tabsetPanel( 
                   type = "tabs",
 
-                  tabPanel(div("Country profile", style="font-size:18px; padding-left:0.3in; padding-right:0.3in"),
+                  tabPanel(div("Country profile", style="font-size:18px; padding-left:0.2in; padding-right:0.2in"),
                            tags$br(), 
                            box(
                              fluidRow(
                                column(8, virtualSelectInput("iso3le", div("Select country, area or WHO region:", style="font-size:18px; font-weight:bold;"), 
-                                                       choices =  iso3le , 
+                                                       choices =  c("Global", "African Region", "Region of the Americas", "European Region",
+                                                                    "Eastern Mediterranean Region", "South-East Asia Region", "Western Pacific Region",
+                                                                    all_countries), 
                                                        selected = "Global",
                                                        search = TRUE, multiple = FALSE, keepAlwaysOpen = FALSE, width = "50%",
                                                        choicesOpt = rep_len("font-size: 16px; color: #00205C;", 190))),
@@ -39,18 +41,9 @@ ui<-fluidPage(withMathJax(),
                                       div(downloadButton("pdf_all", "Save pdf", class = "butt"), style="float:right; padding:15px"),
                                       div(downloadButton("jpeg_all", "Save jpeg", class = "butt"), style="float:right; padding:15px"),
                                       div(downloadButton("data_all", "Download data", class = "butt"), style="float:right; padding:15px"))
-                               # column(4, downloadButton("download_button", "Download disease burden graphs in one pdf"))
                              ), width = 12),
-                           # tags$head(
-                           #   tags$style(
-                           #     HTML(".shiny-notification {position:fixed;top: calc(30%);left: calc(45%);}"
-                           #     )
-                           #   )
-                           # ),
-                           # hr(),
                            tags$br(), 
                            navlistPanel(id = "pages",
-                           # tabsetPanel(
                              tabPanel("Life expectancy and Healthy life expectancy time-series",
                                       fluidRow(column(12, align = "center", div(textOutput("lehetext"), style="font-size:20px; background-color:#ddeff9; padding:0.1in; border-radius: 15px;"))),
                                       fluidRow(column(12, align = "center", 
@@ -60,20 +53,12 @@ ui<-fluidPage(withMathJax(),
                                                                   inline = TRUE,
                                                                   width = "700px"))),
                                       fluidRow(
-                                        # column(1,
-                                        #        downloadButton("data_le", "Download data"), br(),br(),
-                                        #        downloadButton("jpeg_le", "Save jpeg"), br(),br(),
-                                        #        downloadButton("pdf_le", "Save pdf"), br(), br()
-                                        # ),
                                         column(1),
                                         column(10, align = "center", plotOutput("lehe", height = "650px"),
                                                tags$a(href="https://www.who.int/data/gho/data/themes/mortality-and-global-health-estimates/ghe-life-expectancy-and-healthy-life-expectancy", "See more: Life expectancy and Healthy life expectancy (who.int)", style = "float:right")
                                         ),
                                         column(1)
                                         ),
-                                      # fluidRow(column(12, align = "center", uiOutput("lehe", width = "1200px"))),
-                                      # tags$br(),
-                                      # "See more: https://www.who.int/data/gho/data/themes/mortality-and-global-health-estimates/ghe-life-expectancy-and-healthy-life-expectancy",
                                       tags$br()
                                       ),
                              tabPanel("Life expectancy calculator",
@@ -82,7 +67,7 @@ ui<-fluidPage(withMathJax(),
                                       radioButtons("sexle", label = div("Select sex:", style="font-weight:bold; font-size:18px"), choices = c("Both sexes", "Female", "Male"), selected = "Both sexes", inline = TRUE),
                                       tags$br(),
                                       fluidRow(
-                                        column(2,
+                                        column(3,
                                                fluidRow(div("Scale the 2021 mortality level (%):", style="font-weight:bold; font-size:18px")),
                                                tags$br(),
                                                fluidRow(sliderInput("scalar1", textOutput("cod1"), min = 0, max = 100, value = 100, ticks = F, width = "100%")),
@@ -95,12 +80,8 @@ ui<-fluidPage(withMathJax(),
                                                fluidRow(sliderInput("scalar8", textOutput("cod8"), min = 0, max = 100, value = 100, ticks = F, width = "100%")),
                                                fluidRow(sliderInput("scalar9", textOutput("cod9"), min = 0, max = 100, value = 100, ticks = F, width = "100%")),
                                                fluidRow(sliderInput("scalar10", textOutput("cod10"), min = 0, max = 100, value = 100, ticks = F, width = "100%"))
-                                               # br(), br(),
-                                               # downloadButton("data_lecalc", "Download data"), br(),br(),
-                                               # downloadButton("jpeg_lecalc", "Save jpeg"), br(),br(),
-                                               # downloadButton("pdf_lecalc", "Save pdf")
                                         ),
-                                        column(5, align = "center",
+                                        column(4, align = "center",
                                                fluidRow(div("Number of deaths, 2021", style="font-weight:bold; font-size:18px")),
                                                tags$br(),
                                                fluidRow(plotOutput("barcod", height = "1000px"))
@@ -118,10 +99,6 @@ ui<-fluidPage(withMathJax(),
                                       fluidRow(column(12, align = "center", div(textOutput("ledecomptext"), style="font-size:20px; background-color:#ddeff9; padding:0.1in; border-radius: 15px;"))),
                                       tags$br(),
                                       fluidRow(
-                                        # column(1, downloadButton("data_decomp", "Download data"), br(),br(),
-                                        #        downloadButton("jpeg_decomp", "Save jpeg"), br(),br(),
-                                        #        downloadButton("pdf_decomp", "Save pdf"), br(),br()
-                                        # ),
                                         column(1),
                                         column(10, align = "center", 
                                                plotOutput("decomp", height = "700px") %>% withSpinner(type=1),
@@ -131,11 +108,6 @@ ui<-fluidPage(withMathJax(),
                                                ),
                                         column(1)
                                         ),
-                                      # fluidRow(
-                                      #   column(3),
-                                      #   column(6,  ),
-                                      #   column(3)
-                                      # ),
                                       tags$br(),
                                       tags$br(),
                                       tags$a(href="https://github.com/timriffe/DemoDecomp", "Methods: Riffe T (2024). DemoDecomp: Decompose Demographic Functions. R package version 	1.14.1, https://github.com/timriffe/DemoDecomp.", style = "float:right")
@@ -144,10 +116,6 @@ ui<-fluidPage(withMathJax(),
                                       fluidRow(column(12, align = "center", div(textOutput("ledecomptext_time"), style="font-size:20px; background-color:#ddeff9; padding:0.1in; border-radius: 15px;"))),
                                       tags$br(),
                                       fluidRow(
-                                        # column(1, downloadButton("data_decomp_time", "Download data"), br(),br(),
-                                        #        downloadButton("jpeg_decomp_time", "Save jpeg"), br(),br(),
-                                        #        downloadButton("pdf_decomp_time", "Save pdf"), br(),br()
-                                        # ),
                                         column(1),
                                         column(10, align = "center",
                                                radioButtons("sex_decomptime", label = "" , choices = c("Both sexes", "Female", "Male"), selected = "Both sexes", inline = TRUE),
@@ -165,13 +133,7 @@ ui<-fluidPage(withMathJax(),
                                       tags$br(),
                                       fluidRow(column(12, align = "center", radioButtons("sexcod2", label = "", choices = c("Both sexes", "Female", "Male"), selected = "Both sexes", inline = TRUE, width = "100%"))),
                                       tags$br(),
-                                      # fluidRow(plotOutput("codrank", height = "700px", width = "1300px") %>% withSpinner(type=1)),
                                       fluidRow(
-                                        # column(1,
-                                        #        downloadButton("data_arrow", "Download data"), br(),br(),
-                                        #        downloadButton("jpeg_arrow", "Save jpeg"), br(),br(),
-                                        #        downloadButton("pdf_arrow", "Save pdf"), br(),br()
-                                        # ),
                                         column(1),
                                         column(10, plotOutput("codrank", height = "600px") %>% withSpinner(type=1),
                                                tags$a(href="https://www.who.int/data/gho/data/themes/mortality-and-global-health-estimates/ghe-leading-causes-of-death", "See more: Global health estimates: Leading causes of death (who.int)", style = "float:right")
@@ -194,10 +156,6 @@ ui<-fluidPage(withMathJax(),
                                                  ),
                                                tags$br(),
                                                radioButtons("sexcod", label = "", choices = c("Both sexes", "Female", "Male"), selected = "Both sexes", inline = F, width = "100%")
-                                               # tags$br(),tags$br(),tags$br(),
-                                               # downloadButton("data_treemap", "Download data"), br(),br(),
-                                               # downloadButton("jpeg_treemap", "Save jpeg"), br(),br(),
-                                               # downloadButton("pdf_treemap", "Save pdf"), br(),br()
                                                ), 
                                         column(10, align = "center",
                                                plotOutput("treemap", height = "700px") %>% withSpinner(type=1))
@@ -208,11 +166,7 @@ ui<-fluidPage(withMathJax(),
                                       fluidRow(column(12, align = "center", div(textOutput("sdgtext"), style="font-size:20px; background-color:#ddeff9; padding:0.1in; border-radius: 15px;"))),
                                       tags$br(),
                                       fluidRow(
-                                        column(1
-                                               # downloadButton("data_sdgtable", "Download as csv"), br(),br(),
-                                               # downloadButton("jpeg_sdgtable", "Save image")
-                                               # downloadButton("pdf_sdgtable", "Save pdf")
-                                               ),
+                                        column(1),
                                         column(10, align = "center",
                                                uiOutput("sdgtable") %>% withSpinner(type=1),
                                                plotOutput("sdgtable_legend", height = "100px", width = "800px"),
@@ -227,11 +181,6 @@ ui<-fluidPage(withMathJax(),
                                       fluidRow(column(12, align = "center", radioButtons("TB", label = "", choices = c("UHC", "HPOP", "HEP"), selected = "UHC", inline = TRUE, width = "100%"))),
                                       tags$br(),
                                       fluidRow(
-                                        # column(1,
-                                        #        downloadButton("data_TBcontrib", "Download data"), br(),br(),
-                                        #        downloadButton("jpeg_TBcontrib", "Save jpeg"), br(),br(),
-                                        #        downloadButton("pdf_TBcontrib", "Save pdf"), br(),br()
-                                        # ),
                                         column(1),
                                         column(10, align = "center",
                                                plotOutput("TBcontrib", height = "800px") %>% withSpinner(type=1),
@@ -251,22 +200,23 @@ ui<-fluidPage(withMathJax(),
                                       tags$br()
                              ),
                              tabPanel("Generate country report",
-                                      tags$br(),
+                                      br(),
                                       downloadButton("download_button", "Download country report", class = "butt"),
+                                      br(), br(), br(),
+                                      "New version currently only applies to countries, not regions or global",
+                                      br(),
+                                      downloadButton("download_button_new", "Download country report (new version)", class = "butt"),
                                       tags$head(
                                         tags$style(
                                           HTML(".shiny-notification {position:fixed;top: calc(30%);left: calc(45%);}"
                                           )
                                         )
                                       ),
-                                      tags$br(),
-                                      tags$br(),
-                                      tags$br()
+                                      tags$br(), br(), br(), br(), br(), br(), br(), br(), br(), br()
                              ),
                              widths = c(2, 10),
                              fluid = F,
                              well = F
-                             # type = "pills"
                           ),
                           tags$br()
                   ),
@@ -301,7 +251,7 @@ ui<-fluidPage(withMathJax(),
                   #          hr()
                   #          ),
                   
-                  tabPanel(div("Benchmarking", style="font-size:18px; padding-left:0.3in; padding-right:0.3in"),
+                  tabPanel(div("Benchmarking", style="font-size:18px; padding-left:0.2in; padding-right:0.2in"),
                            tags$br(),
                            tabsetPanel(
                              tabPanel("Explore indicators over time",
@@ -346,14 +296,14 @@ ui<-fluidPage(withMathJax(),
                                                  "iso3decomp_bench",
                                                  label = "Select countries, areas or WHO regions to compare:",
                                                  choices = list(
-                                                   "African Region" = data %>% filter(GHOcode=="WHOSIS_000001" & region=="AFR") %>% distinct(country) %>% pull(),
-                                                   "Eastern Mediterranean Region" = data %>% filter(GHOcode=="WHOSIS_000001" & region=="EMR") %>% distinct(country) %>% pull(),
-                                                   "European Region" = data %>% filter(GHOcode=="WHOSIS_000001" & region=="EUR") %>% distinct(country) %>% pull(),
-                                                   "Region of the Americas" = data %>% filter(GHOcode=="WHOSIS_000001" & region=="AMR") %>% distinct(country) %>% pull(),
-                                                   "South-East Asia Region" = data %>% filter(GHOcode=="WHOSIS_000001" & region=="SEAR") %>% distinct(country) %>% pull(),
-                                                   "Western Pacific Region" = data %>% filter(GHOcode=="WHOSIS_000001" & region=="WPR") %>% distinct(country) %>% pull()
+                                                   "African Region" = all_countries_table %>% filter(region=="AFR") %>% distinct(country) %>% arrange(country) %>% pull(),
+                                                   "Eastern Mediterranean Region" = all_countries_table %>% filter(region=="EMR") %>% distinct(country) %>% arrange(country) %>% pull(),
+                                                   "European Region" = all_countries_table %>% filter(region=="EUR") %>% distinct(country) %>% arrange(country) %>% pull(),
+                                                   "Region of the Americas" = all_countries_table %>% filter(region=="AMR") %>% distinct(country) %>% arrange(country) %>% pull(),
+                                                   "South-East Asia Region" = all_countries_table %>% filter(region=="SEAR") %>% distinct(country) %>% arrange(country) %>% pull(),
+                                                   "Western Pacific Region" = all_countries_table %>% filter(region=="WPR") %>% distinct(country) %>% arrange(country) %>% pull()
                                                  ),
-                                                 selected = data %>% filter(GHOcode=="WHOSIS_000001" & region=="AFR") %>% distinct(country) %>% pull(),
+                                                 # selected = data %>% filter(GHOcode=="WHOSIS_000001" & region=="AFR") %>% distinct(country) %>% pull(),
                                                  search = TRUE, multiple = TRUE, keepAlwaysOpen = TRUE, showValueAsTags = FALSE, width = "100%",
                                                  choicesOpt = rep_len("font-size: 16px; color: #00205C;", 190)
                                                ),
@@ -369,8 +319,8 @@ ui<-fluidPage(withMathJax(),
                                                downloadButton("pdf_decomp_bench", "Save pdf", class = "butt"),
                                                style = "background-color: #e6e7e8; border-radius:20px; padding: 20px;"
                                                ),
-                                        column(9, 
-                                               plotOutput("decomp_bench", height = "1200px", width = "1300px")%>% withSpinner(type=1),
+                                        column(9, align = "center",
+                                               plotOutput("decomp_bench", height = "1200px")%>% withSpinner(type=1),
                                                tags$br(),
                                                "Life expectancy is presented as vertical lines: black is life expectancy in 2000, blue is life expectancy in 2021.",
                                                br(),
@@ -542,13 +492,6 @@ ui<-fluidPage(withMathJax(),
                                       tags$br(),
                                       fluidRow(div(textOutput("sdgv2text"), style="font-size:20px; background-color:#ddeff9; padding:0.1in; border-radius: 15px;")),
                                       tags$br(),
-                                      # fluidRow(column(12, align = "center",
-                                      #   virtualSelectInput("sdgind", "Select SDG indicator:",
-                                      #                      choices =  indsdg_,
-                                      #                      selected = "Adolescent/ Child Obesity",
-                                      #                      search = TRUE, multiple = FALSE, keepAlwaysOpen = FALSE, width = "20%", height = "100%",
-                                      #                      choicesOpt = rep_len("font-size: 16px; color: #00205C;", 40))
-                                      # )),
                                       tags$br(),
                                       fluidRow(
                                         column(2,
@@ -588,7 +531,7 @@ ui<-fluidPage(withMathJax(),
                            ),
                            tags$br()
                   ),
-                  tabPanel(div("Indicator Table", style="font-size:18px; padding-left:0.3in; padding-right:0.3in"),
+                  tabPanel(div("Indicator Table", style="font-size:18px; padding-left:0.2in; padding-right:0.2in"),
                            tags$br(),
                            p(tabletext),
                            hr(),
@@ -606,7 +549,8 @@ ui<-fluidPage(withMathJax(),
                                     br(),
                                     checkboxGroupInput("sextab2", "Sex:", choices = c("Female", "Male", "Both sexes"), selected = "Both sexes"),
                                     br(),
-                                    checkboxGroupInput("loctab2", "Urban/Rural:", choices = c("Rural", "Urban", "Both Rural and Urban"), selected = "Both Rural and Urban")
+                                    checkboxGroupInput("loctab2", "Urban/Rural:", choices = c("Rural", "Urban", "Both Rural and Urban"), selected = "Both Rural and Urban"),
+                                    style = "background-color: #e6e7e8; border-radius:20px; padding: 20px;"
                              ),
                              column(9,
                                     DTOutput("dt") %>% withSpinner(type=1)
@@ -661,7 +605,7 @@ ui<-fluidPage(withMathJax(),
                                       column(12, align = "center",
                                         virtualSelectInput("iso3cp", div("Select country:", style="font-size:18px; font-weight:bold;"), 
                                                        choices =  c("Benin", "Burkina Faso", "Central African Republic", "Democratic Republic of the Congo", 
-                                                                    "Guinea-Bissau", "Nigeria", "Rwanda", "Senegal", "Sierra Leone", "South Africa",
+                                                                    "Guinea-Bissau", "Rwanda", "Senegal", "Sierra Leone",
                                                                     "United Republic of Tanzania", "Zambia"), 
                                                        selected = "Benin",
                                                        search = TRUE, multiple = FALSE, keepAlwaysOpen = FALSE, width = "30%",
@@ -681,23 +625,20 @@ ui<-fluidPage(withMathJax(),
                                       ),
                                       tabPanel("MMR Trajectories",
                                                fluidRow(
-                                                 # column(2,
-                                                 #        virtualSelectInput("iso3traj", "Select other countries to compare", 
-                                                 #                           choices =  iso3afr_mmr, 
-                                                 #                           selected = c("Algeria", "Angola"),
-                                                 #                           search = TRUE, multiple = TRUE, keepAlwaysOpen = TRUE, width = "100%",
-                                                 #                           choicesOpt = rep_len("font-size: 16px; color: #00205C;", 190))
-                                                 # ),
-                                                 # column(10,
-                                                        div(textOutput("trajtext"), style="font-size:20px; background-color:#ddeff9; padding:0.1in; border-radius: 15px;"),
+                                                 column(12,
+                                                        div(textOutput("trajtext"), style="font-size:20px; background-color:#ddeff9; padding:0.1in; border-radius: 15px;"), 
+                                                        br(),
+                                                        div("Note: To download the graph or its data, click menu icon at top right corner of the graph.", style = "font-style: italic; font-size: 16px;"),
                                                         br(),
                                                         highchartOutput("mmrtraj2", height = "750px") %>% withSpinner(type=1)
-                                                 # )
+                                                 )
                                                ),
                                                tags$br(),
                                       ),
                                       tabPanel("Sub-national RMNCH", 
-                                               div(textOutput("rmnchtext"), style="font-size:20px; background-color:#ddeff9; padding:0.1in; border-radius: 15px;"),
+                                               div(textOutput("rmnchtext"), style="font-size:20px; background-color:#ddeff9; padding:0.1in; border-radius: 15px;"), 
+                                               br(),
+                                               div("Note: To download the graph or its data, click menu icon at top right corner of the graph.", style = "font-style: italic; font-size: 16px;"),
                                                tags$br(),
                                                fluidRow(
                                                  column(2),
@@ -708,13 +649,14 @@ ui<-fluidPage(withMathJax(),
                                       tabPanel("Generate report",
                                                tags$br(),
                                                tags$br(),
-                                               downloadButton("download_button_mmr", "Download Maternal Mortality report"),
+                                               downloadButton("download_button_mmr", "Download Maternal Mortality report", class = "butt"),
                                                tags$head(
                                                  tags$style(
                                                    HTML(".shiny-notification {position:fixed;top: calc(50%);left: calc(40%);}"
                                                    )
                                                  )
-                                               )
+                                               ),
+                                               br(), br(), br(), br(), br(), br(), br(), br(), br(), br(), br(), br()
                                       )
                                     ),
                                     tags$br()
@@ -729,7 +671,6 @@ ui<-fluidPage(withMathJax(),
                   # )
                   
 ),
-div("Data source: Global Health Observatory and Global Health Estimates, 2021.", style="font-size:14px; color:white; background-color:#00205C; padding:0.3in"),
-# tags$hr(style="color:#00205C; opacity:1;")
+div("Data source: Global Health Observatory and Global Health Estimates, 2024.", style="font-size:14px; color:white; background-color:#00205C; padding:0.3in"),
 )
-# )
+

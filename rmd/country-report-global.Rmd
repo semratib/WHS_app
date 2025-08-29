@@ -1,51 +1,74 @@
 ---
-header-includes:
-- \usepackage{booktabs, graphicx}
-- \usepackage{floatrow}
-- \floatsetup[figure]{capposition=top}
-- \floatplacement{figure}{H}
-- \usepackage[sfdefault, lf]{carlito}
-- \usepackage{setspace}
-- \singlespacing
-- \usepackage{fancyhdr}
-- \usepackage{pdflscape}
-- \newcommand{\blandscape}{\begin{landscape}}
-- \newcommand{\elandscape}{\end{landscape}}
-- \usepackage{geometry}
 output:
   pdf_document:
-    toc: false
-latex_engine: pdflatex
-fontsize: 11pt
+    latex_engine: xelatex
+header-includes:
+  - \usepackage{xcolor}
+  - \usepackage{graphicx}
+  - \usepackage{tcolorbox} % For creating text boxes
+  - \usepackage{xcolor} % Use color package for customization
+  - \definecolor{whodarkblue}{RGB}{0, 32, 92}
+  - \definecolor{wholightblue}{RGB}{0, 154, 222}
+  - \definecolor{wholightblueshade}{RGB}{121, 181, 227}
+  - \definecolor{wholightblueshadev2}{RGB}{201, 221, 243}
+  - \setmainfont{Arial}
+  - \usepackage{fancyhdr} % Allows customization of headers and footers
+  - \pagestyle{fancy} % Enable fancy header/footer style
+  - \fancyhf{} # Clear all default header/footer
+  # - \fancyhead{} % Clear default header
+  - \fancyhead[L]{\color{whodarkblue}Global Health Estimates}
+  - \fancyhead[C]{} % Empty center
+  - \fancyhead[R]{\color{whodarkblue}\thepage} % Add right-aligned content (e.g., author name)
+  - \renewcommand{\headrule}{{\color{whodarkblue}\hrule width\headwidth height\headrulewidth}}
+  - \renewcommand{\headrulewidth}{0.6pt} % Add a horizontal line with thickness of 0.4pt
+  - \setlength{\headheight}{30pt} % Increase header height if needed
+geometry: margin=1.75cm
 params:
   country: NA
   country_iso: NA
   cod00: NA
   cod19: NA
-  ledata: NA
+  top10: NA
+  data_pyramid: NA
+  data: NA
+  filtered_indicator_values: NA
   country_table: NA
-  sdg_data: NA
-geometry: margin=2cm
+  all_plt_dat: NA
+  inds_all: NA
+  ind_labels: NA
+  config_all: NA
 ---
-\addtolength{\headheight}{0.7cm}
-\fancypagestyle{plain}{}
-\thispagestyle{fancy}
-\fancyhead[R]{\includegraphics[height=1.2cm]{WHO_logo.jpg}}
-\renewcommand{\headrulewidth}{0pt}
-<!-- \fontsize{11.5} -->
+```{r parameters, echo = FALSE, message = FALSE, include = FALSE, eval = TRUE}
+list2env(params, .GlobalEnv)
+```
+\thispagestyle{empty}
+\pagecolor{whodarkblue}
+
+\begin{flushleft}
+{\color{white}\rule{\linewidth}{0.25mm}} \\
+\vspace{1.5cm}
+{\fontsize{50}{60}\selectfont \color{white} Global Health} \\
+\vspace{0.5cm}
+{\fontsize{50}{60}\selectfont \color{white} Estimates Fact Sheet} \\
+\vspace{1.5cm}
+{\fontsize{25}{30}\selectfont \color{wholightblueshade} `r toupper(country)`}
+
+\vspace*{15cm} 
+
+\end{flushleft}
+
+\begin{flushright}
+\includegraphics[width=5cm]{WHO-EN-W-H.png}
+\end{flushright}
+
+
+\newpage
+\pagecolor{white}
 
 ```{r settings, echo= FALSE, message = FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 ```
 
-```{r parameters, echo = FALSE, message = FALSE, include = FALSE, eval = TRUE}
-list2env(params, .GlobalEnv)
-```
-
----
-title: | 
-  | \vspace{-1.9cm} \LARGE `r country` \vspace{-1.4cm}
----
 ```{r packages, include=FALSE}
 library(tidyverse)
 library(treemap)
@@ -61,18 +84,27 @@ library(cowplot)
 library(ggnewscale)
 library(flextable)
 library(whoville)
+library(DemoDecomp)
+library(ggrepel)
+library(ggbump)
+library(forcats)
+library(ggpubr)
+library(ggh4x)
 
+inds <- get_inds(get_forecast_inds = FALSE, get_billion_inds = TRUE)
+inds$uhc <- c(inds$uhc, "population")
+inds$hep <- config_all$hep_intermediate_inds
+inds_summary <- c("hpop" = "hpop_healthier", "uhc" = "uhc_billion", "hep" = "hep_idx")
 
-source("treemap.R")
-source("arrow.R")
-source("heatmap.R")
-source("barchart.R")
-source("pyramid.R")
-source("graph_functions.R")
-# source("pie.R")
-# source("country_map.R")
-# source("donut.R")
+inds_all <- inds %>%
+  unlist(use.names = FALSE) %>%
+  unique() %>%
+  c(inds_summary) %>%
+  unname()
 
+# country = "Thailand"; country_iso = "THA"
+
+`%!in%` = Negate(`%in%`)
 font_add("calibri", regular = "fonts/calibri/calibri.ttf")
 showtext_auto()
 
@@ -85,16 +117,9 @@ theme_set(theme(text = element_text(family="calibri"),
           axis.title.y = element_text(family = "calibri")))
 ```
 
-```{r shapefiles, warning=F, message=F, include=F}
-# shapefiles (https://intranet.who.int/sites/ghogis/standards/maptemplates/index.shtml)
-# poly <- st_read(dsn = poly_filepath, layer = "general_2013")
-# poly_mask <- st_read(dsn = poly_filepath, layer = "maskpoly_general_2013")
-# poly_line <- st_read(dsn = poly_filepath, layer = "maskline_general_2013")
-```
-
 ```{r region_info, include=FALSE}
-# country_table <- ghost::gho_dimension_values("COUNTRY")
 who_region <- country_table %>% filter(Code == country_iso) %>% pull(ParentCode)
+
 who_region_name <- case_when(
   who_region=="AFR" ~ "African Region",
   who_region=="AMR" ~ "Region of the Americas",
@@ -103,36 +128,48 @@ who_region_name <- case_when(
   who_region=="SEAR" ~ "South-East Asia Region",
   who_region=="WPR" ~ "Western Pacific Region")
 who_region_countries <- country_table %>% filter(ParentCode == who_region) %>% pull(Code) %>% substr(1,3) %>% unique()
+
+if(who_region=="SEAR"){
+h1 = 6
+  }else{
+h1 = 9
+}
 ```
 
 ```{r data, include=FALSE}
-lev1_causes <- c("Communicable, maternal, perinatal and nutritional conditions", "Noncommunicable diseases", "Injuries", "Other pandemic related causes")
+lev1_causes <- c("Communicable, maternal, perinatal and nutritional conditions", "Noncommunicable diseases", "Injuries", "Other COVID-19 pandemic-related outcomes")
+
+colors <- c("Communicable, maternal, perinatal and nutritional conditions" = "#F26829",
+            "Noncommunicable diseases" = "#009ADE",
+            "Injuries" = "#80BC00",
+            "Other COVID-19 pandemic-related outcomes" = "#A6228C")
 year <- 2021
 comp_year <- 2000
+
+country_ <- country 
 ```
 
 ```{r text_values, include=FALSE}
-
 # total population
 total_pop <- cod19 %>% 
-  filter(sex=="Both sexes" & DIM_AGEGROUP_CODE == 101 & DIM_GHECAUSE_CODE==0) %>%
+  filter(sex=="Both sexes" & DIM_AGEGROUP_CODE == "TOTAL" & DIM_GHECAUSE_CODE==0) %>%
   group_by(DIM_YEAR_CODE) %>% 
   summarise(pop = sum(ATTR_POPULATION_NUMERIC)) %>% 
   pull(pop) %>% 
   format(big.mark = ",", scientific = FALSE)
   
-life_exp <- ledata %>% filter(iso3 == "World" & sex=="Both sexes") %>% pull(value)
+life_exp <- ledata %>% filter(GHOcode=="WHOSIS_000001" & sex=="Both sexes" & year==2021 & iso3 == "World") %>% pull(value)
   
 # total number of deaths
 total_deaths <- cod19 %>%
-  filter(sex=="Both sexes" & DIM_AGEGROUP_CODE == 101 & FLAG_LEVEL == 0) %>%
+  filter(sex=="Both sexes" & DIM_AGEGROUP_CODE == "TOTAL" & FLAG_LEVEL == 0) %>%
   group_by(DIM_YEAR_CODE) %>% 
   summarise(dths = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
   pull(dths)
   
 # level 1 cause fractions
 lev1 <- cod19 %>%
-  filter(sex=="Both sexes" & DIM_AGEGROUP_CODE == 101 & FLAG_LEVEL == 1) %>%
+  filter(sex=="Both sexes" & DIM_AGEGROUP_CODE == "TOTAL" & FLAG_LEVEL == 1) %>%
   group_by(DIM_YEAR_CODE, DIM_GHECAUSE_TITLE) %>% 
   summarise(dths = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
   ungroup() %>% 
@@ -143,7 +180,7 @@ lev1 <- cod19 %>%
   
 # level 2 cause fractions
 lev2 <- cod19 %>%
-  filter(sex=="Both sexes" & DIM_AGEGROUP_CODE == 101 & FLAG_LEVEL == 2) %>%
+  filter(sex=="Both sexes" & DIM_AGEGROUP_CODE == "TOTAL" & FLAG_LEVEL == 2) %>%
   group_by(DIM_YEAR_CODE, DIM_GHECAUSE_TITLE) %>% 
   summarise(dths = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
   ungroup() %>%
@@ -153,7 +190,7 @@ lev2 <- cod19 %>%
   arrange(-cf)
   
 lev2comp <- cod00 %>%
-  filter(sex=="Both sexes" & FLAG_LEVEL == 2) %>%
+  filter(sex=="Both sexes" & DIM_AGEGROUP_CODE == "TOTAL" & FLAG_LEVEL == 2) %>%
   group_by(DIM_YEAR_CODE, DIM_GHECAUSE_TITLE) %>% 
   summarise(dths = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
   ungroup() %>%
@@ -161,411 +198,753 @@ lev2comp <- cod00 %>%
           DIM_GHECAUSE_TITLE = tolower(DIM_GHECAUSE_TITLE)) %>%
   select(DIM_GHECAUSE_TITLE, cf) %>%
   arrange(-cf)
-  
-same_or_different <- ifelse(all(lev2[1:5,1] == lev2comp[1:5,1]), "the same as", "different from")
+
+same_or_different <- ifelse(all(lev2[1:3,1] == lev2comp[1:3,1]), "the same as", "different from")
 comparison_string <- ifelse(same_or_different == "the same as", paste0(comp_year),
                             paste0(comp_year, " which were ",
-                                   paste(as.vector(lev2comp[1:5,]$DIM_GHECAUSE_TITLE), collapse = "; "),
+                                   paste(as.vector(lev2comp[1:3,]$DIM_GHECAUSE_TITLE), collapse = "; "),
                                    " in that order"))
-  
-  # death rates in region
+
+# death rates in region
 death_rate <- cod19 %>%
-  filter(sex=="Both sexes" & DIM_AGEGROUP_CODE == 101 & FLAG_LEVEL == 0) %>%
+  filter(sex=="Both sexes" & DIM_AGEGROUP_CODE == "TOTAL" & FLAG_LEVEL == 0) %>%
   group_by(DIM_YEAR_CODE) %>% 
   summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC),
             ATTR_POPULATION_NUMERIC = sum(ATTR_POPULATION_NUMERIC)) %>% 
   ungroup() %>%
-  mutate(death_rate = (VAL_DEATHS_COUNT_NUMERIC/ATTR_POPULATION_NUMERIC)*100000) %>% 
-  pull(round(death_rate, 1))
-
+  mutate(death_rate = round((VAL_DEATHS_COUNT_NUMERIC/ATTR_POPULATION_NUMERIC)*100000, 1)) %>% 
+  pull(death_rate)
 ```
 
-The `r country` has a total population of `r total_pop` and a life expectancy at birth of `r round(life_exp, 1)` years in `r year`. Of the `r format(round(total_deaths), big.mark=",", scientific=F)` total deaths in `r year`, `r lev1[1,2]`% were from `r lev1[1,1]`; `r lev1[2,2]`% were from `r lev1[2,1]`; `r lev1[3,2]`% were from `r lev1[3,1]`; and `r lev1[4,2]`% were from `r lev1[4,1]`. The top five level-2 causes of death were `r lev2[1,1]` (`r lev2[1,2]`%), `r lev2[2,1]` (`r lev2[2,2]`%), `r lev2[3,1]` (`r lev2[3,2]`%), `r lev2[4,1]` (`r lev2[4,2]`%), and `r lev2[5,1]` (`r lev2[5,2]`%). This is `r same_or_different` the top five causes in `r comparison_string`. The mortality rate in `r year` was `r death_rate` deaths per 100,000 population.
+```{r life_exp_bysex, message=FALSE, include=F}
+exp <- data %>% 
+  filter(GHOcode=="WHOSIS_000002" | GHOcode=="WHOSIS_000001") %>%
+  filter(year %in% c(2000, 2010, 2019, 2020, 2021)) %>%
+  filter(country=="Global") %>% 
+  filter(sex %in% c("Both sexes")) %>% 
+  select(country, year, sex, name, value) %>% 
+  mutate(value = round(value, 1)) %>% 
+  mutate(name2 = case_when(
+    name=="Life expectancy at birth (years)" ~ "Life expectancy",
+    name=="Healthy life expectancy at birth (years)" ~ "Healthy life expectancy",
+  )) %>% 
+  mutate(name2 = factor(name2, levels = c("Life expectancy", "Healthy life expectancy")))
 
-\centering
+exp2 <- exp %>% pivot_wider(names_from = name, values_from = value)
+    
+max <- exp %>% select(value) %>% arrange(desc(value)) %>% filter(row_number()==1) %>% pull()
+min <- exp %>% select(value) %>% arrange(value) %>% filter(row_number()==1) %>% pull()
 
-```{r treemap, fig.cap = paste0("All-age cause of death in 2021 and 2000, ", country, ". Causes making up 5% or more of the total deaths are labeled with their cause fraction."), fig.height= 3.1}
-# make_treemap(data = cod19 %>% filter(sex=="Both sexes" & DIM_AGEGROUP_CODE==101), country_iso = country_iso, year = 2021)
+# jpeg("le.jpeg")
+png("le.png", height = 790, width = 700)
 
-data_treemap <- cod19 %>%
-  filter(sex=="Both sexes" & DIM_AGEGROUP_CODE==101 & FLAG_TREEMAP == 1) %>% 
-  group_by(DIM_YEAR_CODE, DIM_GHECAUSE_TITLE, FLAG_CAUSEGROUP) %>% 
-  summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
+ggplot()+
+  # geom_ribbon(data = exp2, aes(x=year, ymax=`Life expectancy at birth (years)`, ymin=`Healthy life expectancy at birth (years)`), fill="grey", alpha=0.3) +
+  geom_line(data = exp, aes(x=year, y=value, color=name2), size = 2.5, show.legend=F) +
+  geom_point(data = exp, aes(x=year, y=value, color=name2), size =8) +
+  ylab("")+ xlab("")+ 
+  # labs(title = "Life expectancy & healthy life expectancy") +
+  scale_y_continuous(limits = c(round(min, 0)-2,round(max, 0)+2)) +
+  scale_color_manual(values = c("Life expectancy" ="#009ADE",
+                                "Healthy life expectancy" = "#80BC00")) +
+  theme_classic()+
+  theme(axis.text=element_text(size=20),
+        axis.text.x = element_text(angle = 0, vjust = 0.5, hjust = 0.5, color = "black"),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        legend.position = "top",
+        legend.title = element_blank(),
+        legend.text = element_text(size = 20, margin = margin(t = 0, r = 10, b =0, l = 5)),
+        plot.title = element_text(size = 24),
+        panel.border = element_blank(),
+        axis.line.y = element_blank(),
+        axis.line.x = element_line(color = "darkgrey"),
+        panel.grid.major = element_line(color = "darkgrey",size = 0.5,linetype = 1),
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white"))
+  
+dev.off()
+```
+
+\begin{minipage}{0.5\textwidth}
+\begin{tcolorbox}[colback=wholightblueshadev2, colframe=wholightblueshadev2, title=Overview, coltitle=whodarkblue, fonttitle=\Large\bfseries, height=11cm, boxsep=2mm]
+Globally in 2021, the life expectancy at birth was `r round(life_exp, 1)` years.\\
+\\
+There were `r format(round(total_deaths), big.mark=",", scientific=F)` total deaths in 2021 and the mortality rate was `r death_rate` deaths per 100,000 population.\\
+\\
+`r lev1[1,2]`\% of deaths were from `r lev1[1,1]`; `r lev1[2,2]`\% were from `r lev1[2,1]`; `r lev1[3,2]`\% were from `r lev1[3,1]`; and `r lev1[4,2]`\% were from `r lev1[4,1]`.\\
+\\
+The top three level-2 causes of death were `r lev2[1,1]` (`r lev2[1,2]`\%), `r lev2[2,1]` (`r lev2[2,2]`\%) and `r lev2[3,1]` (`r lev2[3,2]`\%). This is `r same_or_different` the top causes in `r comparison_string`. 
+\end{tcolorbox}
+\end{minipage}
+\hfill
+\begin{minipage}{0.5\textwidth}
+\includegraphics{le.png}
+\end{minipage}
+
+\rule{\textwidth}{0.6pt}\color{whodarkblue}
+Contribution to the change in life expectancy, 2000–2021
+```{r life_exp_deomp_bysex, fig.height=4.3, fig.align='center'}
+
+test21 <- cod19 %>% 
+  filter(FLAG_TREEMAP==1) %>%
+  filter(DIM_AGEGROUP_CODE!="TOTAL") %>% 
+  group_by(DIM_YEAR_CODE, DIM_GHECAUSE_TITLE, FLAG_CAUSEGROUP, age, sex) %>% 
+  summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC),
+            ATTR_POPULATION_NUMERIC = sum(ATTR_POPULATION_NUMERIC)) %>% 
+  ungroup()
+      
+test00 <- cod00 %>% 
+  filter(FLAG_TREEMAP==1) %>%
+  filter(DIM_AGEGROUP_CODE!="TOTAL") %>% 
+  group_by(DIM_YEAR_CODE, DIM_GHECAUSE_TITLE, FLAG_CAUSEGROUP, age, sex) %>% 
+  summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC),
+            ATTR_POPULATION_NUMERIC = sum(ATTR_POPULATION_NUMERIC)) %>% 
   ungroup()
 
-lev1 <- cod19 %>% filter(FLAG_LEVEL == 1) %>%
-    select(FLAG_CAUSEGROUP, lev1_name = DIM_GHECAUSE_TITLE) %>%
-    unique()
-data_treemap <- data_treemap %>% left_join(lev1, by = "FLAG_CAUSEGROUP")
-data_treemap$lev1_name <- factor(data_treemap$lev1_name, levels = lev1_causes)
-
-data_treemap <- data_treemap %>%
-  mutate(cause_fraction = VAL_DEATHS_COUNT_NUMERIC / sum(VAL_DEATHS_COUNT_NUMERIC)) %>%
-  mutate(cause_title = ifelse(cause_fraction > 0.05,
-                                paste(DIM_GHECAUSE_TITLE, sprintf("(%1.1f%%)", 100*cause_fraction), sep = " "),
-                                DIM_GHECAUSE_TITLE)) %>%
-  mutate(mycolor = case_when(
-      lev1_name=="Communicable, maternal, perinatal and nutritional conditions" ~"#F26829",
-      lev1_name=="Noncommunicable diseases" ~ "#009ADE",
-      lev1_name=="Injuries" ~ "#80BC00",
-      lev1_name=="Other pandemic related causes" ~ "#A6228C"
-    )) %>%
-  mutate(mycolor = ifelse(is.na(cause_title), NA, mycolor))
-
-  # get total death count for title
-total_deaths <- cod19 %>% 
-  filter(FLAG_LEVEL == 0 & sex=="Both sexes" & DIM_AGEGROUP_CODE==101) %>%
-  group_by(DIM_YEAR_CODE, DIM_GHECAUSE_TITLE) %>% 
-  summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
+top <- top10 %>% 
+  filter(region=="Global" & sex == "Both sexes") %>% 
   ungroup() %>% 
-  pull(VAL_DEATHS_COUNT_NUMERIC) %>% round()
-
-  # make treemap
-treemap::treemap(data_treemap,
-          index=c("lev1_name","cause_title"),
-          vSize="VAL_DEATHS_COUNT_NUMERIC",
-          type="color",
-          vColor = "mycolor",
-          fontsize.labels=c(0,9),
-          fontcolor.labels=c("white","white"),
-          fontface.labels=c(2,1),
-          fontfamily.labels=c("sans"),
-          fontfamily.title = "sans",
-          bg.labels=c("transparent"),
-          border.col=c("white","white"),
-          align.labels=list(
-            c("center", "center"),
-            c("right", "bottom")
-          ),
-          overlap.labels=0.5,
-          inflate.labels=T,
-          position.legend = "none",
-          fontsize.title = 11,
-          title=paste0("Total deaths, 2021: ", format(total_deaths, big.mark = ",", scientific = F))
-  )
-```
-
-```{r treemap_comp, fig.height= 3.1}
-# make_treemap(data = cod00 %>% filter(sex=="Both sexes"), country_iso = country_iso, year = 2000)
-
-data_treemap <- cod00 %>%
-  filter(sex=="Both sexes" & FLAG_TREEMAP == 1) %>% 
-  group_by(DIM_YEAR_CODE, DIM_GHECAUSE_TITLE, FLAG_CAUSEGROUP) %>% 
-  summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
-  ungroup()
-
-lev1 <- cod00 %>% filter(FLAG_LEVEL == 1) %>%
-    select(FLAG_CAUSEGROUP, lev1_name = DIM_GHECAUSE_TITLE) %>%
-    unique()
-data_treemap <- data_treemap %>% left_join(lev1, by = "FLAG_CAUSEGROUP")
-data_treemap$lev1_name <- factor(data_treemap$lev1_name, levels = lev1_causes)
-
-data_treemap <- data_treemap %>%
-  mutate(cause_fraction = VAL_DEATHS_COUNT_NUMERIC / sum(VAL_DEATHS_COUNT_NUMERIC)) %>%
-  mutate(cause_title = ifelse(cause_fraction > 0.05,
-                                paste(DIM_GHECAUSE_TITLE, sprintf("(%1.1f%%)", 100*cause_fraction), sep = " "),
-                                DIM_GHECAUSE_TITLE)) %>%
-  mutate(mycolor = case_when(
-      lev1_name=="Communicable, maternal, perinatal and nutritional conditions" ~"#F26829",
-      lev1_name=="Noncommunicable diseases" ~ "#009ADE",
-      lev1_name=="Injuries" ~ "#80BC00",
-      lev1_name=="Other pandemic related causes" ~ "#A6228C"
-    )) %>%
-  mutate(mycolor = ifelse(is.na(cause_title), NA, mycolor))
-
-  # get total death count for title
-total_deaths <- cod00 %>% 
-  filter(FLAG_LEVEL == 0 & sex=="Both sexes") %>%
-  group_by(DIM_YEAR_CODE, DIM_GHECAUSE_TITLE) %>% 
-  summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
+  select(DIM_GHECAUSE_TITLE, country = region) %>% 
+  mutate(flag = 1) 
+    
+top_levels <- c(unique(top$DIM_GHECAUSE_TITLE), "Other")
+    
+test21__ <- test21 %>% 
+  left_join(top) %>% 
+  mutate(cause = ifelse(flag==1, DIM_GHECAUSE_TITLE, "Other")) %>% 
+  mutate(cause = ifelse(is.na(flag), "Other", cause)) %>%
+  group_by(age, cause, sex) %>% 
+  summarise(new_deaths = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
   ungroup() %>% 
-  pull(VAL_DEATHS_COUNT_NUMERIC) %>% round()
+  left_join(test21 %>% distinct(age, sex, ATTR_POPULATION_NUMERIC)) %>% 
+  mutate(rate = new_deaths/ATTR_POPULATION_NUMERIC) %>% 
+  select(age, sex, cause, rate) 
+    
+test00__ <- test00 %>% 
+  left_join(top) %>% 
+  mutate(cause = ifelse(flag==1, DIM_GHECAUSE_TITLE, "Other")) %>% 
+  mutate(cause = ifelse(is.na(flag), "Other", cause)) %>%
+  group_by(age, cause, sex) %>% 
+  summarise(new_deaths = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
+  ungroup() %>% 
+  left_join(test00 %>% distinct(age, sex, ATTR_POPULATION_NUMERIC)) %>% 
+  mutate(rate = new_deaths/ATTR_POPULATION_NUMERIC) %>% 
+  select(age, sex, cause, rate) 
+    
+out <- data.frame(sex = character(), name = character(), value = numeric())
+    
+for(i in c("Both sexes", "Female", "Male")){
+  
+  test21_ <- test21__ %>% 
+    filter(sex==i) %>% 
+    pivot_wider(names_from = cause, values_from = rate) %>% 
+    select(-c(sex)) %>% 
+    remove_rownames %>% 
+    column_to_rownames(var="age")
+  
+  test00_ <- test00__ %>% 
+    filter(sex==i) %>% 
+    pivot_wider(names_from = cause, values_from = rate) %>% 
+    select(-c(sex)) %>% 
+    remove_rownames %>% 
+    column_to_rownames(var="age")
+  
+  dims <- dim(test21_)
+  
+  v21_ <- data.matrix(test21_)
+  v00_ <- data.matrix(test00_)
+      
+  v21 <- c(v21_)
+  v00 <- c(v00_)
+  names <- colnames(v21_)
+  
+  B <- stepwise_replacement(func = Mxc2e0abrvec, pars1 = v00, pars2 = v21, dims = dims, symmetrical = TRUE, direction = "up") 
+  
+  B_ <- as.data.frame(matrix(B, nrow = dims[1], ncol = dims[2])) %>% summarise_all(list(sum))
+  
+  colnames(B_) <- names
+  
+  B__ <- B_ %>% 
+    mutate(sex = i) %>% 
+    pivot_longer(cols = -c(sex)) %>% 
+    mutate(value = round(value, 2))
+  
+  out <- rbind(out, B__)
+}
 
-  # make treemap
-treemap::treemap(data_treemap,
-          index=c("lev1_name","cause_title"),
-          vSize="VAL_DEATHS_COUNT_NUMERIC",
-          type="color",
-          vColor = "mycolor",
-          fontsize.labels=c(0,9),
-          fontcolor.labels=c("white","white"),
-          fontface.labels=c(2,1),
-          fontfamily.labels=c("sans"),
-          fontfamily.title = "sans",
-          bg.labels=c("transparent"),
-          border.col=c("white","white"),
-          align.labels=list(
-            c("center", "center"),
-            c("right", "bottom")
-          ),
-          overlap.labels=0.5,
-          inflate.labels=T,
-          position.legend = "none",
-          fontsize.title = 11,
-          title=paste0("Total deaths, 2000: ", format(total_deaths, big.mark = ",", scientific = F))
-  )
-```
+out2 <- out %>% 
+  left_join(cod19 %>% 
+              filter(FLAG_TREEMAP==1) %>%
+              distinct(DIM_GHECAUSE_TITLE, FLAG_CAUSEGROUP) %>% 
+              rename(name = DIM_GHECAUSE_TITLE)
+  ) %>% 
+  mutate(group = case_when(
+    FLAG_CAUSEGROUP ==1 ~ "Communicable diseases",
+    FLAG_CAUSEGROUP ==2 ~ "Noncommunicable diseases",
+    FLAG_CAUSEGROUP ==3 ~ "Injuries",
+    FLAG_CAUSEGROUP ==4 ~ "Other COVID-19 pandemic-related outcomes",
+    is.na(FLAG_CAUSEGROUP) ~ "Other"
+  ))
 
-```{r treemap_leg, fig.height=0.4,}
-legend_treemap <- ggplot() +
-  geom_tile(aes(x = 1, y = 1), fill = "#F26829")+
-  geom_tile(aes(x = 2, y = 1), fill = "#009ADE", size = 1) +
-  geom_tile(aes(x = 3, y = 1), fill = "#80BC00", size = 1) +
-  geom_tile(aes(x = 4, y = 1), fill = "#A6228C", size = 1) +
-  geom_text(aes(x = 1, y = 0.5, label = "Communicable, maternal, perinatal\nand nutritional conditions"), size=2.5, vjust = 1.1)+
-  geom_text(aes(x = 2, y = 0.5, label = "Noncommunicable diseases"), size=2.5, vjust = 1.5)+
-  geom_text(aes(x = 3, y = 0.5, label = "Injuries"), size=2.5, vjust = 1.5)+
-  geom_text(aes(x = 4, y = 0.5, label = "Other COVID-19\npandemic-related outcomes"), size=2.5, vjust = 1.1)+
+target_color <- "#00205C" 
+below <- out2 %>% 
+  filter(value < 0 & sex =="Both sexes") %>% 
+  arrange(value) %>% 
+  distinct(name) %>% pull()
+num_colors <- length(below)
+color_gradient <- colorRampPalette(c("#98a9ca", target_color))(num_colors)
+names(color_gradient) <- below
+
+# target_color <- "#5B2C86"
+target_color <- "#009ADE"
+above <- out2 %>% 
+  filter(value > 0 & sex =="Both sexes") %>% 
+  arrange(desc(value)) %>% 
+  distinct(name) %>% pull()
+num_colors <- length(above)
+color_gradient2 <- colorRampPalette(c("#d0dde3", target_color))(num_colors) #"#d5c6e5" "#f4f9b4"
+names(color_gradient2) <- above
+
+color_final <- c(color_gradient, color_gradient2)
+
+calc_label_points_v2 <- function(dat) {
+    dat %>%
+      mutate(
+        ind_idx = as.integer(name),
+        ind_label = name
+      ) %>%
+      arrange(-ind_idx) %>%
+      mutate(
+        y_upper_bar = cumsum(value),
+        y_lower_bar = c(0, y_upper_bar[-n()]),
+        y_midpoint = (y_upper_bar + y_lower_bar) / 2,
+      ) %>%
+      select(name, ind_idx, ind_label, value, y_upper_bar, y_lower_bar, y_midpoint)
+}
+out3 <- out2 %>%
+  mutate(name = factor(name, levels = c(below, rev(above))))
+
+label_positive_points_v2 <- out3 %>%
+  filter(sex == "Both sexes" & value >= 0) %>%
+  calc_label_points_v2()
+label_negative_points_v2 <- out3 %>%
+  filter(sex == "Both sexes" & value < 0) %>%
+  calc_label_points_v2()
+
+label_points_v2 <- bind_rows(label_positive_points_v2, label_negative_points_v2) 
+
+
+out3 %>% 
+  ggplot()+
+  geom_col(aes(x = sex, y = value, fill = name), show.legend = F, width = 0.7, color = "black")+
+  ggrepel::geom_text_repel(
+      data = label_points_v2 %>% filter(abs(value)>0.02),
+      mapping = aes(x = 0.65, y = y_midpoint, label = name), #, color = ind
+      color = "black",
+      na.rm = T,
+      direction = "y",
+      nudge_x = -1.25,
+      max.overlaps = 10,
+      show.legend = FALSE,
+      size = 3
+    ) +
+  scale_fill_manual(
+    values = color_final
+  ) +
+  geom_hline(yintercept = 0, color = "black") +
+  scale_y_continuous(label = scales::label_number(suffix = " years   ")) +
   theme_void()+
-  scale_y_continuous(limits = c(-1,1.5))
-
-legend_treemap
+  theme(axis.text.x=element_text(size=9),
+        axis.text.y=element_text(size=9),
+        panel.grid.major.y = element_line(color = "darkgrey")
+        )
 ```
 
 \newpage
-
-```{r donut_uhc_subindex, tab.cap = paste0("Triple Billions indicator progress in ", country, ", 2018-2030."), ft.arraystretch = 1.2}
-# donut_filtered <- prep_donut_data()
- table <- make_sdg_table(filtered_data = sdg_data, level = country)
-    
-ft <- flextable(table)
-ft <- bg(ft, bg = "white", part = "all")
-ft <- bg(ft, ~ ach=="Likely Achieve by 2030", ~ `2030`, bg = "#AACF7F")
-ft <- bg(ft, ~ ach=="Won't Achieve by 2030, but within 10% of target", ~ `2030`, bg = "#F5C46A")
-ft <- bg(ft, ~ ach=="Won't Achieve by 2030", ~ `2030`, bg = "#F6A27C")
-ft <- delete_columns(ft, j = "ach")
-ft <- width(ft, j =1, width=1.2, unit = "cm")
-ft <- width(ft, j =2, width=6, unit = "cm")
-ft <- width(ft, j =3, width=3, unit = "cm")
-ft <- width(ft, j =4:6, width=1.3, unit = "cm")
-ft <- width(ft, j =7, width=3.5, unit = "cm")
-ft <- align(ft, j=4:7, i = 1:nrow(table), align = "center")
-ft <- align(ft, j=4:7, align = "center", part = "header")
-# ft <- add_footer_lines(ft, "2030 values are colored based on whether the indicator is likely to achieve the target based on 2030 forecasts: green will reach target, orange are within 10% of target, red will not reach target.")
-# ft <- footnote(ft, i= 1, j=6, value = as_paragraph("2030 values are colored based on whether the indicator is likely to achieve the target based on 2030 forecasts: green will reach target, orange are within 10% of target, red will not reach target."), ref_symbols = "*", part = "header")
-
-ft
-```
-
-
-```{r donut_uhc_tracer, fig.cap=paste0("UHC tracer indicator progress in ", country, ", 2018-2030."), fig.height = 8, fig.width=7}
-# donut_filtered <- prep_donut_data()
-year_pie = 2018
-country_iso_ <- tolower(country_iso)
-donut_data <- sdg_data %>%
-    filter(billion == "uhc") %>%
-    filter(aggregate_id == country_iso_) %>%
-    filter(year %in% c(year_pie, 2030)) %>%
-    mutate(year_ = case_when(year==year_pie ~ "start_year", year==2030 ~ "goal_year")) %>%
-    select(aggregate_id, year_, indicator_name, gpw13_indicator_code, billion, value, sdg_2030_goal) %>%
-    pivot_wider(names_from = year_, values_from = value) %>%
-    mutate(start_year = round(start_year, 0),
-           goal_year = round(goal_year, 0)) %>%
-    filter(gpw13_indicator_code != "uhc_sm" &
-             gpw13_indicator_code != "asc") %>%
-    filter(!is.na(start_year)) %>% 
-    mutate(indicator_name = case_when(indicator_name == "Child treatment" ~ "Child Health Care Seeking",
-                                      indicator_name == "Health security" ~ "Preparedness",
-                                 .default = indicator_name)) %>%
-    arrange(goal_year)
-
-  ind <- donut_data$indicator_name
-
-  donut_data$indicator_name <- factor(donut_data$indicator_name, levels = c(ind))
-
-  donut_data$xmin <- 0:(nrow(donut_data)-1)
-  donut_data$xmax <- donut_data$xmin + 1
-  
-  scale_max <- max(donut_data$start_year, donut_data$goal_year)
-
-  get_color_pal <- grDevices::colorRampPalette(RColorBrewer::brewer.pal(9, "Set1"))
-  color_pal <- get_color_pal(nrow(donut_data))
-  # Draw plot
-
-  ggplot(data = donut_data) +
-    geom_rect(aes(xmin = xmin, xmax = xmax,
-                  ymin = 0, ymax = goal_year,
-                  fill=indicator_name), alpha=0.4) +
-    geom_rect(aes(xmin = xmin, xmax = xmax,
-                  ymin = 0, ymax = start_year,
-                  fill=indicator_name)) +
-    geom_rect(aes(xmin = xmin, xmax = xmax,
-                  ymin = sdg_2030_goal, ymax = sdg_2030_goal,
-                  color = indicator_name), fill = "white", alpha=0, show.legend = FALSE) +
-
-    geom_text(data = donut_data %>% filter(row_number()<=4),
-              aes(label = round(start_year, digits = 0), x = xmin+0.5, y = start_year/2), size = 2) +
-    geom_text(data = donut_data %>% filter(row_number()>4),
-              aes(label = round(start_year, digits = 0), x = xmin+0.5, y = 30), size = 2) +
-
-    geom_text(data = donut_data %>% filter(row_number()==nrow(donut_data)),
-              aes(label = paste("2030 Target: ", sdg_2030_goal),
-                  x = xmin+0.5, y = sdg_2030_goal+10),
-              size = 3, fontface = "bold.italic",
-              hjust = 0.8
-    ) +
-
-    geom_text(data = donut_data %>% filter(row_number()!=nrow(donut_data)),
-              aes(label =sdg_2030_goal,
-                  x = xmin+0.5, y = sdg_2030_goal+6),
-              size = 3, fontface = "bold.italic") +
-
-    coord_polar() +
-    theme_void()+
-    scale_y_continuous(limits = c(-20, scale_max))+
-    labs(title = str_wrap("The lines along the perimeter are the 2030 targets for each indicator, with the values presented in bold italic font.
-                           The solid areas are the 2018 baseline values, these values are presented within the pie chart.
-                          The lightly shaded areas are the 2030 forecasts.", 140)
-    )+
-    theme(legend.position = "bottom",
-          legend.text = element_text(size = 8),
-          plot.margin = unit(c(0, 0, 0, 0), "cm"),
-          plot.title = element_text(size = 8)
-    ) +
-    scale_fill_manual(values = color_pal) +
-    scale_color_manual(values = color_pal) +
-    labs(fill = "") +
-    guides(fill = guide_legend(
-      ncol = 3,
-      byrow = FALSE,
-      override.aes = list(size = 0.75)))
-```
-
-
-```{r arrow_deaths, fig.cap = paste0("Change in rank for level 2 causes of death between 2000 and ", year, " in ", country, "."), fig.height = 8, fig.width=7, fig.showtext = TRUE}
-make_arrow(cod19 %>% 
-             filter(sex=="Both sexes" & DIM_AGEGROUP_CODE==101) %>% 
-             group_by(FLAG_CAUSEGROUP, DIM_YEAR_CODE, DIM_GHECAUSE_TITLE, FLAG_LEVEL) %>% 
-             summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
-             ungroup() %>% 
-             mutate(DIM_COUNTRY_CODE = "Global"), 
-           cod00 %>% filter(sex=="Both sexes") %>% 
-             group_by(FLAG_CAUSEGROUP, DIM_YEAR_CODE, DIM_GHECAUSE_TITLE, FLAG_LEVEL) %>% 
-             summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
-             ungroup()%>% 
-             mutate(DIM_COUNTRY_CODE = "Global"), 
-           country_iso, year, comp_year, metric = "deaths")
-```
-
-
-```{r heatmap_deaths, fig.cap = paste0("Heatmap for rank of level-2 causes of all-age both-sex deaths in ", year, ", ", who_region_name, "."), fig.height=9, fig.width=8, fig.showtext = TRUE}
-# make_heatmap(cod19 %>% filter(sex=="Both sexes" & DIM_AGEGROUP_CODE==101), 
-#              country_iso, year, country_table, who_region_countries, metric = "deaths")
-```
-
-
-```{r barchart_fraction, fig.cap = paste0("Level 1 cause of death by age group in ", country, ", ", year, " (percent of total deaths)."),  fig.showtext = TRUE}
-data_barchart <- cod19 %>% 
-  filter(sex=="Both sexes" & DIM_AGEGROUP_CODE!=101 & FLAG_LEVEL == 1) %>% 
-  group_by(DIM_AGEGROUP_CODE, DIM_YEAR_CODE, DIM_GHECAUSE_TITLE) %>% 
-  summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
+\includegraphics[width=17cm]{legend.PNG}
+\
+\
+Overall causes of death, 2021
+```{r lev1barchart, fig.height=0.7, fig.align='center', fig.width=8}
+d <- cod19 %>%
+  filter(FLAG_LEVEL==1 & sex=="Both sexes" & DIM_AGEGROUP_CODE=="TOTAL") %>%
+  group_by(DIM_GHECAUSE_TITLE, DIM_YEAR_CODE) %>%
+  summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC)) %>%
   ungroup() %>% 
-  mutate(ageend = case_when(
-    DIM_AGEGROUP_CODE==0 ~ 1,
-    DIM_AGEGROUP_CODE==1 ~ 4,
-    DIM_AGEGROUP_CODE==85 ~ NA,
-    .default = DIM_AGEGROUP_CODE+4
-  )) %>% 
-  mutate(agegrp = ifelse(DIM_AGEGROUP_CODE!=85, paste0(DIM_AGEGROUP_CODE, "-", ageend), "85PLUS"))
+  mutate(country = "Global",
+         pct = paste0((round(VAL_DEATHS_COUNT_NUMERIC/sum(VAL_DEATHS_COUNT_NUMERIC)*100, 0)),"%"),
+         DIM_GHECAUSE_TITLE = factor(DIM_GHECAUSE_TITLE, levels = lev1_causes))
 
-ageorder <- data_barchart %>% distinct(agegrp) %>% pull()
-data_barchart$agegrp <- factor(data_barchart$agegrp, ageorder)
-
-data_barchart$DIM_GHECAUSE_TITLE <- factor(data_barchart$DIM_GHECAUSE_TITLE, lev1_causes)
-data_barchart$yvar <- data_barchart$VAL_DEATHS_COUNT_NUMERIC
-position <- "fill"
-ytitle <- "Percent of total deaths"
-  
-ggplot(data_barchart, aes(x = agegrp, y = yvar, fill = DIM_GHECAUSE_TITLE)) +
-    geom_bar(position = position, stat = "identity", alpha = 0.7) +
-    theme_classic() +
-    labs(x = "", y = ytitle, fill = "") +
-    theme(axis.text.x = element_text(angle = 60, hjust = 1, family="calibri"),
-          axis.text.y = element_text(family="calibri", size = 9),
-          axis.title.y = element_text(family="calibri", size = 10),
-          legend.text = element_text(family = "calibri", size = 10),
-          legend.position = "bottom") +
-    scale_fill_manual(values = c("#F26829", "#009ADE", "#80BC00", "#A6228C"))+
-    guides(fill=guide_legend(nrow=4, byrow=TRUE)) 
+d %>% 
+  ggplot(aes(x = country, y = VAL_DEATHS_COUNT_NUMERIC, fill = forcats::fct_rev(DIM_GHECAUSE_TITLE))) +
+  geom_col(position = "fill", show.legend = F, width = 0.5) +
+  geom_text(data = d %>% filter(pct %!in% c("0%", "1%", "2%")), aes(label = pct), position = position_fill(vjust = 0.5), show.legend = F, size = 3)+
+  geom_text(data = d %>% filter(DIM_GHECAUSE_TITLE=="Injuries"), aes(y = 0, x = country, label = country), size = 3, vjust = -2.5, hjust = 0) + 
+  coord_flip()+
+  theme_void() +
+  theme(plot.margin = margin(t=0, l=0,r=0, b=0, unit = "cm"))+
+  # theme(axis.text.y = element_text(size = 8)) +
+  scale_fill_manual(values = colors)
 ```
+\rule{\textwidth}{0.6pt}\color{whodarkblue}
+Top 10 causes of death, 2000-2021
+``` {r top10, fig.height=3.2, fig.align='center'}
+lev1 <- cod19 %>%
+      filter(FLAG_LEVEL == 1) %>%
+      select(FLAG_CAUSEGROUP, lev1_name = DIM_GHECAUSE_TITLE) %>%
+      unique()
 
-```{r barchart_rate, fig.cap = paste0("Level 1 cause of death by age group in ", country, ", ", year, " (total deaths per 100,000)."),  fig.showtext = TRUE}
-data_barchart <- cod19 %>% 
-  filter(sex=="Both sexes" & DIM_AGEGROUP_CODE!=101 & FLAG_LEVEL == 1) %>% 
-  group_by(DIM_AGEGROUP_CODE, DIM_YEAR_CODE, DIM_GHECAUSE_TITLE) %>% 
+b <- cod19 %>% 
+  filter(FLAG_LEVEL==2 & sex=="Both sexes" & DIM_AGEGROUP_CODE=="TOTAL") %>%
+  group_by(DIM_GHECAUSE_TITLE, DIM_YEAR_CODE, FLAG_CAUSEGROUP) %>%
+  summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC)) %>%
+  ungroup() %>% 
+  mutate(prop_deaths = VAL_DEATHS_COUNT_NUMERIC / sum(VAL_DEATHS_COUNT_NUMERIC),
+         rank_deaths = rank(-prop_deaths, ties.method = "first")) %>% 
+  rbind(cod00 %>% 
+          filter(FLAG_LEVEL==2 & sex=="Both sexes" & DIM_AGEGROUP_CODE=="TOTAL") %>%
+          group_by(DIM_GHECAUSE_TITLE, DIM_YEAR_CODE, FLAG_CAUSEGROUP) %>%
+          summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC)) %>%
+          ungroup() %>% 
+          mutate(prop_deaths = VAL_DEATHS_COUNT_NUMERIC / sum(VAL_DEATHS_COUNT_NUMERIC),
+                 rank_deaths = rank(-prop_deaths, ties.method = "first"))) %>% 
+  pivot_wider(id_cols = c(FLAG_CAUSEGROUP, DIM_GHECAUSE_TITLE), names_from = DIM_YEAR_CODE,
+                  values_from = c(rank_deaths)) %>%
+  filter(`2000`<11 | `2021`<11) %>% 
+  left_join(lev1, by = "FLAG_CAUSEGROUP") %>% 
+  pivot_longer(cols = c(`2000`, `2021`)) %>% 
+  mutate(year = as.numeric(name),
+         label = paste0(value, ". ", DIM_GHECAUSE_TITLE))
+
+    
+b %>% 
+  ggplot(aes(x = year, y = -value, group = DIM_GHECAUSE_TITLE, color = lev1_name)) +
+  geom_bump(size = 3, show.legend = F, alpha = 0.4) +
+  geom_bump(size = 0.6, show.legend = F, alpha = 1) +
+  geom_point(size = 6, show.legend = F) +
+  geom_text(data = b %>% filter(year == 2000),
+            aes(x = year, y = -value, label = value),
+            size = 3, show.legend = F, color = "black") +
+  geom_text(data = b %>% filter(year == 2021),
+            aes(x = year, y = -value, label = value),
+            size = 3, show.legend = F, color = "black") +
+  geom_text(data = b %>% filter(year == 2000),
+            aes(x = year - 1, y = -value, label = str_wrap(DIM_GHECAUSE_TITLE,25)),
+            size = 3, hjust = 1, show.legend = F, color = "black") +
+  geom_text(data = b %>% filter(year == 2021),
+            aes(x = year + 1, y = -value, label = str_wrap(DIM_GHECAUSE_TITLE,25)),
+            size = 3, hjust = 0, show.legend = F, color = "black") +
+  scale_x_continuous(limits = c(1985, 2036))+
+  # scale_color_manual(values = c("#F26829", "#009ADE", "#80BC00")) +
+  scale_color_manual(values = c(
+    "Communicable, maternal, perinatal and nutritional conditions" ="#F26829",
+    "Noncommunicable diseases" = "#009ADE",
+    "Injuries" = "#80BC00",
+    "Other COVID-19 pandemic-related outcomes" = "#A6228C"
+  )) +
+  theme_void() +
+  guides(color=guide_legend(ncol=1))
+```
+\rule{\textwidth}{0.6pt}\color{whodarkblue}
+Detailed causes of death, 2021
+``` {r treemap, fig.height=3.2, fig.align='center'}
+lev1 <- cod19 %>%
+      filter(FLAG_LEVEL == 1) %>%
+      select(FLAG_CAUSEGROUP, lev1_name = DIM_GHECAUSE_TITLE) %>%
+      unique()
+
+data_treemap <- cod19 %>%
+  filter(sex=="Both sexes" & DIM_AGEGROUP_CODE=="TOTAL" & FLAG_TREEMAP == 1) %>% 
+  group_by(DIM_GHECAUSE_TITLE, DIM_YEAR_CODE, FLAG_CAUSEGROUP) %>%
+  summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC)) %>%
+  ungroup() 
+
+data_treemap <- data_treemap %>% left_join(lev1, by = "FLAG_CAUSEGROUP")
+data_treemap$lev1_name <- factor(data_treemap$lev1_name, levels = lev1_causes)
+
+data_treemap <- data_treemap %>%
+  mutate(cause_fraction = VAL_DEATHS_COUNT_NUMERIC / sum(VAL_DEATHS_COUNT_NUMERIC)) %>%
+  mutate(cause_title = ifelse(cause_fraction > 0.01,
+                                paste(DIM_GHECAUSE_TITLE, sprintf("(%1.1f%%)", 100*cause_fraction), sep = " "),
+                                DIM_GHECAUSE_TITLE)) %>%
+  mutate(mycolor = case_when(
+      lev1_name=="Communicable, maternal, perinatal and nutritional conditions" ~"#F26829",
+      lev1_name=="Noncommunicable diseases" ~ "#009ADE",
+      lev1_name=="Injuries" ~ "#80BC00",
+      lev1_name=="Other COVID-19 pandemic-related outcomes" ~ "#A6228C"
+    )) %>%
+  mutate(mycolor = ifelse(is.na(cause_title), NA, mycolor))
+
+# get total death count for title
+total_deaths <- cod19 %>% 
+  filter(FLAG_LEVEL == 0 & sex=="Both sexes" & DIM_AGEGROUP_CODE=="TOTAL") %>%
+  group_by(DIM_YEAR_CODE) %>% 
+  summarise(dths = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
+  pull(dths) %>% round()
+
+# make treemap
+treemap::treemap(data_treemap,
+          index=c("lev1_name","cause_title"),
+          vSize="VAL_DEATHS_COUNT_NUMERIC",
+          type="color",
+          vColor = "mycolor",
+          fontsize.labels=c(0,9),
+          # fontcolor.labels=c("white","white"),
+          fontcolor.labels=c("black","black"),
+          fontface.labels=c(2,1),
+          fontfamily.labels=c("sans"),
+          fontfamily.title = "sans",
+          bg.labels=c("transparent"),
+          border.col=c("white","white"),
+          # border.col=c("black","black"),
+          align.labels=list(
+            c("center", "center"),
+            c("left", "top")
+          ),
+          overlap.labels=0.5,
+          inflate.labels=F,
+          position.legend = "none",
+          fontsize.title = 8,
+          title=paste0("Total deaths: ", format(total_deaths, big.mark = ",", scientific = F))
+  )
+```
+\tiny Note: Communicable diseases includes maternal, perinatal and nutritional conditions.
+\newpage
+\normalsize Causes of death by sex, 2021
+```{r codbysex, fig.align='center', fig.height=4}
+
+d2 <- cod19 %>% 
+  filter(FLAG_LEVEL==1 & sex %in% c("Male", "Female") & DIM_AGEGROUP_CODE=="TOTAL") %>%
+  group_by(sex, DIM_GHECAUSE_TITLE) %>% 
   summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC),
             ATTR_POPULATION_NUMERIC = sum(ATTR_POPULATION_NUMERIC)) %>% 
-  ungroup() %>%
-  mutate(VAL_DEATHS_RATE100K_NUMERIC = (VAL_DEATHS_COUNT_NUMERIC/ATTR_POPULATION_NUMERIC)*100000) %>% 
-  mutate(ageend = case_when(
-    DIM_AGEGROUP_CODE==0 ~ 1,
-    DIM_AGEGROUP_CODE==1 ~ 4,
-    DIM_AGEGROUP_CODE==85 ~ NA,
-    .default = DIM_AGEGROUP_CODE+4
-  )) %>% 
-  mutate(agegrp = ifelse(DIM_AGEGROUP_CODE!=85, paste0(DIM_AGEGROUP_CODE, "-", ageend), "85PLUS"))
+  ungroup() %>% 
+  mutate(deaths_100 = round((VAL_DEATHS_COUNT_NUMERIC/ATTR_POPULATION_NUMERIC)*100000, 0))
 
-ageorder <- data_barchart %>% distinct(agegrp) %>% pull()
-data_barchart$agegrp <- factor(data_barchart$agegrp, ageorder)
+max_lim <- max(d2$deaths_100)
 
-data_barchart$DIM_GHECAUSE_TITLE <- factor(data_barchart$DIM_GHECAUSE_TITLE, lev1_causes)
-data_barchart$yvar <- data_barchart$VAL_DEATHS_RATE100K_NUMERIC
-position <- "stack"
-ytitle <- "Total deaths per 100,000"
+d2$deaths_100 <- ifelse(d2$sex == "Female", d2$deaths_100*-1, d2$deaths_100)
 
-ggplot(data_barchart, aes(x = agegrp, y = yvar, fill = DIM_GHECAUSE_TITLE)) +
-    geom_bar(position = position, stat = "identity", alpha = 0.7) +
-    theme_classic() +
-    labs(x = "", y = ytitle, fill = "") +
-    theme(axis.text.x = element_text(angle = 60, hjust = 1, family="calibri"),
-          axis.text.y = element_text(family="calibri", size = 9),
-          axis.title.y = element_text(family="calibri", size = 10),
-          legend.text = element_text(family = "calibri", size = 10),
-          legend.position = "bottom") +
-    scale_fill_manual(values = c("#F26829", "#009ADE", "#80BC00", "#A6228C"))+
-    guides(fill=guide_legend(nrow=4, byrow=TRUE)) 
+# make plot
+ggplot() + 
+  geom_col(data = d2,
+           aes(x= str_wrap(DIM_GHECAUSE_TITLE, 15), y = deaths_100, fill = DIM_GHECAUSE_TITLE), 
+           width = 0.4, show.legend = F, color = "black") +
+  facet_share(~sex, dir = "h", 
+                scales = 'free') + 
+  coord_flip(clip = 'off') +
+  scale_fill_manual(values = colors)+
+  scale_x_discrete(limits = rev)+
+  facetted_pos_scales(
+    y = list(scale_y_continuous(limits = c(-max_lim, 0),
+                                labels = ~scales::label_number(decimal.mark = ",")(abs(.x))),
+             scale_y_continuous(limits = c(0, max_lim),
+                                labels = ~scales::label_number(decimal.mark = ",")(abs(.x)))
+             )
+    ) +
+  theme_classic() +
+  theme(
+      strip.background = element_blank(),
+      plot.margin = unit(c(0,0,0,-2.5), "cm"),
+      strip.text = element_text(face = 'bold', family="calibri", size = 10),
+      axis.title.y = element_blank(),
+      axis.title.x = element_text(size = 10, color = "black"),
+      axis.ticks.y = element_line(color = "white"),
+      axis.line.x = element_blank(),
+      panel.grid.major.x = element_line(color = "grey"),
+      axis.text.y = element_text(family="calibri", size = 10, color = "black")
+    ) +
+    labs(y = "Deaths per 100,000") 
 ```
 
-```{r barchart_count, fig.cap = paste0("Level 1 cause of death by age group in ", country, ", ", year, " (total number of deaths)."), fig.showtext = TRUE}
-data_barchart <- cod19 %>% 
-  filter(sex=="Both sexes" & DIM_AGEGROUP_CODE!=101 & FLAG_LEVEL == 1) %>% 
-  group_by(DIM_AGEGROUP_CODE, DIM_YEAR_CODE, DIM_GHECAUSE_TITLE) %>% 
-  summarise(VAL_DEATHS_COUNT_NUMERIC = sum(VAL_DEATHS_COUNT_NUMERIC)) %>% 
-  ungroup() %>%
-  mutate(ageend = case_when(
-    DIM_AGEGROUP_CODE==0 ~ 1,
-    DIM_AGEGROUP_CODE==1 ~ 4,
-    DIM_AGEGROUP_CODE==85 ~ NA,
-    .default = DIM_AGEGROUP_CODE+4
-  )) %>% 
-  mutate(agegrp = ifelse(DIM_AGEGROUP_CODE!=85, paste0(DIM_AGEGROUP_CODE, "-", ageend), "85PLUS"))
+\rule{\textwidth}{0.6pt}\color{whodarkblue}
+Disability adjusted life-years (DALYs) by sex, 2021
+```{r dalybysex, fig.align='center', fig.height=4}
 
-ageorder <- data_barchart %>% distinct(agegrp) %>% pull()
-data_barchart$agegrp <- factor(data_barchart$agegrp, ageorder)
+d3 <- data_pyramid %>% 
+  filter(FLAG_LEVEL==1 & sex %in% c("Male", "Female") & DIM_AGEGROUP_CODE=="TOTAL") %>%
+  group_by(sex, DIM_GHECAUSE_TITLE) %>% 
+  summarise(VAL_DALY_COUNT_NUMERIC = sum(VAL_DALY_COUNT_NUMERIC),
+            ATTR_POPULATION_NUMERIC = sum(ATTR_POPULATION_NUMERIC)) %>% 
+  ungroup() %>% 
+  mutate(daly_100 = round((VAL_DALY_COUNT_NUMERIC/ATTR_POPULATION_NUMERIC)*100000, 0))
 
-data_barchart$DIM_GHECAUSE_TITLE <- factor(data_barchart$DIM_GHECAUSE_TITLE, lev1_causes)
-data_barchart$yvar <- data_barchart$VAL_DEATHS_COUNT_NUMERIC
-position <- "stack"
-ytitle <- "Total number of deaths"
+max_lim <- max(d3$daly_100)
+
+d3$daly_100 <- ifelse(d3$sex == "Female", d3$daly_100 *-1, d3$daly_100)
+min_lim <- min(d3$daly_100)
+
+# make plot
+ggplot() + 
+  geom_col(data = d3,
+           aes(x= str_wrap(DIM_GHECAUSE_TITLE, 15), y = daly_100, fill = DIM_GHECAUSE_TITLE), 
+           width = 0.4, show.legend = F, color = "black") +
+  facet_share(~sex, dir = "h", 
+                scales = 'free') + 
+  coord_flip(clip = 'off') +
+  scale_fill_manual(values = colors)+
+  scale_x_discrete(limits = rev)+
+  facetted_pos_scales(
+    y = list(scale_y_continuous(limits = c(-max_lim, 0),
+                                labels = ~scales::label_number(decimal.mark = ",")(abs(.x))),
+             scale_y_continuous(limits = c(0, max_lim),
+                                labels = ~scales::label_number(decimal.mark = ",")(abs(.x)))
+             )
+    ) +
+  theme_classic() +
+  theme(
+      strip.background = element_blank(),
+      plot.margin = unit(c(0,0,0,-2.5), "cm"),
+      strip.text = element_text(face = 'bold', family="calibri", size = 10),
+      axis.title.y = element_blank(),
+      axis.title.x = element_text(size = 10, color = "black"),
+      axis.ticks.y = element_line(color = "white"),
+      axis.line.x = element_blank(),
+      panel.grid.major.x = element_line(color = "grey"),
+      axis.text.y = element_text(family="calibri", size = 10, color = "black")
+    ) +
+    labs(y = "DALYs per 100,000") 
+```
+\newpage
+Universal Health Coverage tracer indicator progress, 2018–2030
+\
+\includegraphics[width=7cm]{legend_uhc.png}
+```{r uhccircle, fig.align='center', fig.height=3.8, fig.width=7}
+
+donut_data <- filtered_indicator_values %>% 
+      filter(billion == "uhc") %>%
+      filter(country == "Global") %>%
+      filter(year %in% c(2018, 2030)) %>% 
+      mutate(year_ = case_when(year==2018 ~ "start_year", year==2030 ~ "goal_year")) %>% 
+      select(aggregate_id, year_, indicator_name, gpw13_indicator_code, billion, value, sdg_2030_goal) %>% 
+      pivot_wider(names_from = year_, values_from = value) %>% 
+      mutate(start_year = round(start_year, 0),
+             goal_year = round(goal_year, 0)) %>% 
+      filter(gpw13_indicator_code != "uhc_sm" &
+               gpw13_indicator_code != "asc") %>%
+      mutate(indicator_name = case_when(indicator_name == "Child treatment" ~ "Child Health Care Seeking",
+                                        indicator_name == "Health security" ~ "Preparedness",
+                                        .default = indicator_name)) %>% 
+      arrange(goal_year) %>% 
+  filter(goal_year!="NaN")
+
+
+ind <- donut_data$indicator_name
+
+donut_data$indicator_name <- factor(donut_data$indicator_name, levels = c(ind))
+
+donut_data$xmin <- 0:(nrow(donut_data)-1)
+donut_data$xmax <- donut_data$xmin + 1
   
-ggplot(data_barchart, aes(x = agegrp, y = yvar, fill = DIM_GHECAUSE_TITLE)) +
-    geom_bar(position = position, stat = "identity", alpha = 0.7) +
+scale_max <- max(donut_data$start_year, donut_data$goal_year, 120)
+
+ggplot(data = donut_data) +
+    geom_col(aes(x=indicator_name, y = goal_year), fill = "#009ADE", alpha = 0.5, width = 1)+
+    geom_col(aes(x=indicator_name, y = start_year), fill = "#009ADE", alpha = 1, width = 0.6) +
+    geom_rect(aes(xmin = xmin+0.5, xmax = xmax+0.5,
+                  ymin = sdg_2030_goal, ymax = sdg_2030_goal+1), color = "#A6228C",  fill = "#A6228C", show.legend = FALSE) +
+    # geom_vline(xintercept = c(0.5,1.5,2.5,3.5,4.5,5.5,6.5,7.5,8.5,9.5,10.5,11.5,12.5), 
+    #          color = "darkgrey", linetype = "solid", size = 0.4) +
+    geom_hline(yintercept = c(scale_max, 0),
+             color = "darkgrey", linetype = "solid", size = 0.25) +
+    geom_segment(aes(x = c(0.5,1.5,2.5,3.5,4.5,5.5,6.5,7.5,8.5,9.5,10.5,11.5, 12.5), 
+                   xend  = c(0.5,1.5,2.5,3.5,4.5,5.5,6.5,7.5,8.5,9.5,10.5,11.5, 12.5), 
+                   y = 0, 
+                   yend = scale_max),
+               color = "darkgrey", lwd = 0.25) +
+    coord_polar() +
+    theme_void() +
+    theme(axis.text.x = element_text(size = 6.5, color = "black", margin = margin(t = 0, r = 0, b =0, l = 0)),
+          axis.ticks.x = element_line(color = "black"),
+          plot.margin = unit(c(0,0,0,0), "cm"))+
+    scale_y_continuous(limits = c(-20, scale_max))+
+   scale_x_discrete(labels = function(x) str_wrap(x, width = 10))
+  
+#   test <- donut_data %>%
+#     mutate(n = row_number()) %>%
+#     pivot_longer(cols = c(sdg_2030_goal, start_year, goal_year)) %>%
+#     mutate(name2 = case_when(
+#       name=="sdg_2030_goal" ~ "2030 target",
+#       name=="start_year" ~ "2018 baseline",
+#       name=="goal_year" ~ "2030 forecast"
+#     ))
+#   test2 <- ggplot() +
+#     geom_point(data = test %>% filter(name != "sdg_2030_goal"), aes(x=n, y = value, color = name2), size = 8) +
+#     geom_line(data = test %>% filter(name == "sdg_2030_goal"), aes(x=n, y = value, color = name2), size = 3) +
+#     theme_classic()+
+#     theme(legend.title = element_blank(),
+#           legend.position = "top",
+#           legend.text = element_text(size = 12, margin = margin(r = 40, t = 0, l = 0, b = 0, unit = "pt"))
+#           )+
+#     scale_color_manual(values = c("2030 target" = "#A6228C",
+#                                   "2018 baseline" = "#009ADE",
+#                                   "2030 forecast" = "#bdd6f2"))
+# 
+#   png("rmd/legend_uhc.png", height = 30, width = 450)
+# leg <- get_legend(test2)
+# as_ggplot(leg)
+# dev.off()
+```
+\rule{\textwidth}{0.6pt}\color{whodarkblue}
+Healthier populations - individual indicator contributions (millions)
+```{r hpopcontrib, fig.align='center', fig.height=3.9}
+all_plt_dat <- all_plt_dat %>% 
+      filter(
+        country == "Global",
+        scenario == "baseline",
+        ind %in% inds_all,
+        year >= config_all$required_start_year,
+        year <= 2030,
+        year > 2017
+      ) %>%
+      left_join(ind_labels, by = c("ind", "billion")) %>%
+      mutate(name = case_when(name == "Child healthcare" ~ "Child health care", .default = name))
+
+hpop_ind_order <- all_plt_dat %>%
+  filter(year == 2030 & billion == "hpop" & ind != "hpop_healthier") %>%
+  arrange(abs(contribution)) %>%
+  pull(name)
+
+# hpop_ind_colors <- full_color_pal[1:length(hpop_ind_order)]
+# names(hpop_ind_colors) <- hpop_ind_order
+      
+hpop_decomp <- all_plt_dat %>%
+  mutate(ind = factor(name, levels = c(hpop_ind_order, "Population healthier - HPOP Billion"))) %>%
+  filter(billion == "hpop") 
+
+plt_billion = "hpop"
+plt_net_ind = "Population healthier - HPOP Billion"
+# plt_inds_color_pal = hpop_ind_colors
+label_years = config_all$years_label_plot %>% c(2019)
+size_text = 3
+plt_dat = hpop_decomp
+  
+net_dat <- plt_dat %>%
+  filter(ind == plt_net_ind) %>%
+  mutate(
+    point_label = case_when(
+      year %in% label_years ~ contribution_mln %>% round(digits = 0),
+      .default = NA_real_
+      )
+  ) %>%
+  select(ind, year, contribution_mln, point_label)
+  
+calc_label_points <- function(dat) {
+    dat %>%
+      mutate(
+        ind_idx = as.integer(ind),
+        ind_label = ind
+      ) %>%
+      arrange(-ind_idx) %>%
+      mutate(
+        y_upper_bar = cumsum(contribution_mln),
+        y_lower_bar = c(0, y_upper_bar[-n()]),
+        y_midpoint = (y_upper_bar + y_lower_bar) / 2,
+      ) %>%
+      select(ind, ind_idx, ind_label, year, contribution_mln, y_upper_bar, y_lower_bar, y_midpoint)
+  }
+  
+  label_positive_points <- plt_dat %>%
+    filter(year == 2030 & contribution_mln >= 0 & ind != plt_net_ind) %>%
+    calc_label_points()
+  label_negative_points <- plt_dat %>%
+    filter(year == 2030 & contribution_mln < 0 & ind != plt_net_ind) %>%
+    calc_label_points()
+  label_points <- bind_rows(label_positive_points, label_negative_points) %>%
+    mutate(
+      pct_contribution = abs(contribution_mln) / sum(abs(contribution_mln)) * 100,
+      ind_label = case_when(
+        plt_billion == "hep" ~ ind,
+        pct_contribution > 1 ~ ind,
+        .default = NA
+      )
+    )
+  label_ind_in_legend <- label_points %>%
+    filter(is.na(ind_label)) %>%
+    arrange(ind) %>%
+    pull(ind)
+  
+  plt_dat <- plt_dat %>%
+    filter(ind != plt_net_ind) %>%
+    mutate(ind_label = if_else(year == 2030, ind, NA)) %>%
+    select(ind, year, ind_label, contribution_mln)
+  
+target_color <- "#F26829" 
+below <- label_points %>% 
+  filter(contribution_mln < 0) %>% 
+  arrange(contribution_mln) %>% 
+  distinct(ind) %>% pull()
+num_colors <- length(below)
+# Number of colors in the gradient
+color_gradient <- colorRampPalette(c("#feece0", target_color))(num_colors)
+names(color_gradient) <- below
+
+target_color <- "#009ADE"
+above <- label_points %>% 
+  filter(contribution_mln > 0) %>% 
+  arrange(desc(contribution_mln)) %>% 
+  distinct(ind) %>% pull()
+num_colors <- length(above)
+# Number of colors in the gradient
+color_gradient2 <- colorRampPalette(c("#ddeff9", target_color))(num_colors)
+names(color_gradient2) <- above
+
+color_final <- c(color_gradient2, color_gradient)
+ind_sent <- paste(label_ind_in_legend, collapse = ', ')
+nudgeing <- net_dat %>% filter(year==2019) %>% pull(contribution_mln)
+
+plt_dat %>%
+    ggplot(aes(x = year, y = contribution_mln)) +
+    geom_col(aes(fill = ind), position = "stack", na.rm = F, show.legend = F) +
+    geom_line(data = net_dat, aes(y = contribution_mln, color = "Net Contribution"),  color = "black") +
+    geom_point(data = net_dat, aes(y = contribution_mln, color = "Net Contribution"), color = "black") +
+    geom_text_repel(
+      data = label_points,
+      mapping = aes(x = 2030.45, y = y_midpoint, label = ind_label), #, color = ind
+      color = "black",
+      # vjust aligns the segments vertically in the middle of each bar section
+      # position = position_stack(vjust = 0.5),
+      na.rm = T,
+      # align all indicator labels at 20301 onwards and only shift vertically
+      direction = "y",
+      # nudge_y = 1,
+      xlim = c(2031, Inf),
+      # still label indicators that are close to equal
+      max.overlaps = 100,
+      # effectively skip drawing line to label
+      # min.segment.length = 100,
+      show.legend = FALSE,
+      size = size_text
+    ) +
+  geom_text_repel(
+    data = net_dat %>% filter(year==2019),
+      aes(x = year, y = contribution_mln, label = "Net contribution"),
+      show.legend = F, na.rm = T, size = 3, color = "black",
+      nudge_y = nudgeing
+    ) +
+    geom_hline(yintercept = 0, linetype = "solid", alpha = 0.5) +
+    scale_fill_manual(
+      values = color_final,
+      breaks = label_ind_in_legend
+    ) +
+    scale_x_continuous(breaks = 2018:2030) +
+    scale_y_continuous(n.breaks = 10) +
     theme_classic() +
-    labs(x = "", y = ytitle, fill = "") +
-    theme(axis.text.x = element_text(angle = 60, hjust = 1, family="calibri"),
-          axis.text.y = element_text(family="calibri", size = 9),
-          axis.title.y = element_text(family="calibri", size = 10),
-          legend.text = element_text(family = "calibri", size = 10),
-          legend.position = "bottom") +
-    scale_fill_manual(values = c("#F26829", "#009ADE", "#80BC00", "#A6228C"))+
-    guides(fill=guide_legend(nrow=4, byrow=TRUE)) 
+    # Allow labels to bleed past the canvas boundaries
+    coord_cartesian(clip = 'off') +
+    theme(
+      panel.grid.major.y = element_line(color = "darkgrey"),
+      axis.line.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      axis.line.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.text.x=element_text(size=8),
+      axis.title.x =element_blank(),
+      axis.text.y=element_text(size=8),
+      axis.title.y=element_blank(),
+      plot.title = element_blank(),
+      plot.margin = unit(c(5, 100, 5, 5), "pt"),
+    )
 ```
-
-```{r pyramid_deaths, fig.cap = paste0("All-age both-sex deaths per 100,000 in ", year, " by level-1 cause of death, ", who_region_name, "."), fig.height=8, fig.align='center'}
-# make_pyramid(data_by_sex, data, country_iso, year, who_region_countries, country_table, metric = "deaths")
-```
-
-```{r pyramid_dalys, fig.cap = paste0("All-age both-sex DALYs per 100,000 in ", year, " by level-1 cause, ", who_region_name, "."), fig.height=8, fig.align='center'}
-# make_pyramid(data_by_sex, data, country_iso, year, who_region_countries, country_table, metric = "dalys")
-```
-
+\small Other indicators below 1% of the total absolute contribution in 2030: `r ind_sent`.
