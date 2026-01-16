@@ -8,6 +8,10 @@ This code creates a R Shiny dashboard that presents interavtive visualizations a
 4. "server.R" defines the back-end logic: produces the visualizations and calculations as the user interacts with the dashboard.
 5. "app.R" is the single entry point that combines both the user interface (UI) and the server logic so that the app can run.
 
+## Preview
+<img width="1378" height="854" alt="image" src="https://github.com/user-attachments/assets/15b111da-899f-4ba7-a168-d7bcf90fdf8b" />
+
+
 ## Data sources
 - Global Health Estimates, cause of death: https://xmart-api-public.who.int/DEX_CMS/GHE_FULL_FOCUS
 - Life & healthy life expectancy: https://www.who.int/data/gho/data/themes/mortality-and-global-health-estimates/ghe-life-expectancy-and-healthy-life-expectancy
